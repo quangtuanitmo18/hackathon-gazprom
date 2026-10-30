@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from productpulse.insights.trends import ProblemTimeline, analyze_problem_trends
+from productpulse.insights.trends import ProblemTimeline, SourceCoverage, analyze_problem_trends
 
 
 NOW = datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc)
@@ -28,7 +28,10 @@ def inspect(*problems, **kwargs):
 
 def test_confirmed_three_member_problem_new_activity_not_statistically_proven_spike():
     trend, = inspect(make_problem(1, 2, 3))
-    assert trend.status == "new_activity"
+    assert trend.status == "unknown_coverage"
+    assert trend.observed_pattern == "new_activity"
+    assert trend.coverage_status == "unknown_coverage"
+    assert trend.eligible_for_alert is False
     assert (trend.current_count, trend.previous_count, trend.delta) == (3, 0, 3)
     assert trend.problem_id == "PRB-1"
     assert trend.revision == 2
@@ -40,8 +43,8 @@ def test_confirmed_three_member_problem_new_activity_not_statistically_proven_sp
 
 def test_volume_increase_has_nonzero_observed_baseline_and_absolute_threshold():
     trend, = inspect(make_problem(1, 2, 3, 4, 25))
-    assert (trend.status, trend.current_count, trend.previous_count) == (
-        "volume_increase", 4, 1
+    assert (trend.status, trend.observed_pattern, trend.current_count, trend.previous_count) == (
+        "unknown_coverage", "volume_increase", 4, 1
     )
     assert trend.delta == 3
     assert trend.previous_ticket_keys == ("PRB-1:source:4",)
@@ -127,7 +130,89 @@ def test_deterministic_status_priority_and_problem_id_ordering():
         make_problem(1, 2, 3, 25, problem_id="a-growth"),
     )
     assert [(r.problem_id, r.status) for r in result] == [
-        ("a-growth", "volume_increase"),
-        ("b-new", "new_activity"),
+        ("a-growth", "unknown_coverage"),
+        ("b-new", "unknown_coverage"),
         ("z-monitor", "monitor"),
     ]
+
+def test_boundary_exact_48h_is_in_previous_window_and_offset_equivalence():
+    utc_exact = NOW - timedelta(hours=48)
+    shifted = utc_exact.astimezone(timezone(timedelta(hours=3)))
+    p = ProblemTimeline(
+        problem_id="boundary48", scope_id="tenant-a", revision=1,
+        ticket_times=(("a", utc_exact), ("b", shifted), ("c", NOW - timedelta(hours=1))),
+    )
+    row, = inspect(p)
+    assert row.previous_count == 2
+    assert row.previous_ticket_keys == ("a", "b")
+    assert row.current_count == 1
+
+
+def test_verified_source_coverage_allows_descriptive_growth_not_auto_publication():
+    cover = SourceCoverage(
+        source_system="synthetic",
+        complete_from=NOW - timedelta(hours=72),
+        complete_through=NOW,
+        evidence_ref="signed-adapter-import-001",
+    )
+    row, = inspect(ProblemTimeline(
+        problem_id="verified", scope_id="tenant-a", revision=2,
+        source_systems=("synthetic",),
+        coverage=(cover,),
+        ticket_times=(
+            ("a", NOW - timedelta(hours=1)),
+            ("b", NOW - timedelta(hours=2)),
+            ("c", NOW - timedelta(hours=3)),
+        ),
+    ))
+    assert row.coverage_status == "complete"
+    assert row.status == "new_activity"
+    assert row.observed_pattern == "new_activity"
+    assert row.eligible_for_alert is False  # human review remains mandatory
+
+
+def test_partial_source_watermark_and_multisource_coverage_are_unknown():
+    cover = SourceCoverage(
+        source_system="a", complete_from=NOW - timedelta(hours=48),
+        complete_through=NOW - timedelta(hours=1),
+        evidence_ref="import-a",
+    )
+    row, = inspect(ProblemTimeline(
+        problem_id="mixed", scope_id="tenant-a", revision=2,
+        source_systems=("a", "b"),
+        coverage=(cover,),
+        ticket_times=tuple((str(i), NOW - timedelta(hours=i)) for i in (1, 2, 3)),
+    ))
+    assert row.status == "unknown_coverage"
+    assert row.coverage_status == "unknown_coverage"
+
+
+def test_backfilled_old_event_can_change_observed_baseline_not_fake_spike():
+    initial, = inspect(make_problem(1, 2, 3))
+    backfilled, = inspect(make_problem(1, 2, 3, 25))
+    assert initial.previous_count == 0
+    assert backfilled.previous_count == 1
+    assert initial.observed_pattern == "new_activity"
+    assert backfilled.observed_pattern == "volume_increase"
+    assert both_are_unverified(initial, backfilled)
+
+
+def both_are_unverified(*rows):
+    return all(row.status == "unknown_coverage" and not row.eligible_for_alert for row in rows)
+
+
+def test_empty_provenance_and_duplicate_source_coverage_fail_closed():
+    with pytest.raises(ValueError, match="coverage"):
+        inspect(ProblemTimeline(
+            problem_id="invalid", scope_id="tenant-a", revision=1,
+            source_systems=("a",),
+            coverage=(SourceCoverage("a", NOW - timedelta(hours=48), NOW, ""),),
+            ticket_times=(("a", NOW - timedelta(hours=1)), ("b", NOW - timedelta(hours=2))),
+        ))
+    coverage = SourceCoverage("a", NOW - timedelta(hours=48), NOW, "import-a")
+    with pytest.raises(ValueError, match="duplicate"):
+        inspect(ProblemTimeline(
+            problem_id="invalid", scope_id="tenant-a", revision=1,
+            source_systems=("a",), coverage=(coverage, coverage),
+            ticket_times=(("a", NOW - timedelta(hours=1)), ("b", NOW - timedelta(hours=2))),
+        ))
