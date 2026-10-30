@@ -1,0 +1,36 @@
+name: Generate audited dashboard npm lockfile
+
+on:
+  push:
+    branches: [feat/problem-dashboard]
+    paths: ['.github/workflows/dashboard-lockfile.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  lockfile:
+    if: github.repository == 'quangtuanitmo18/hackathon-gazprom'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/problem-dashboard
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve OSS dependencies without executing install scripts
+        working-directory: apps/web
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit lockfile only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "build(dashboard): pin exact OSS dependency tree via npm lockfile [skip ci]"
+            git push origin HEAD:feat/problem-dashboard
+          fi
