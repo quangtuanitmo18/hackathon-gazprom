@@ -2,9 +2,12 @@ name: Dashboard Next.js + PostgreSQL E2E smoke
 
 on:
   push:
-    branches: [feat/problem-dashboard]
+    branches: [feat/problem-dashboard, feat/oidc-reviewer-workflow]
     paths:
       - 'apps/web/**'
+      - 'src/productpulse/api/**'
+      - 'src/productpulse/incident/registry.py'
+      - 'pyproject.toml'
       - '.github/workflows/dashboard-smoke.yml'
   workflow_dispatch:
   pull_request:
