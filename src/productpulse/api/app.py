@@ -69,7 +69,7 @@ class ReviewProgressOut(BaseModel):
     pair_id: str
     status: Literal[
         "awaiting_first_review", "awaiting_second_review", "ready_for_lead",
-        "disputed", "uncertain", "classified",
+        "disputed", "uncertain", "classified", "approved",
     ]
     reviewer_ids: tuple[str, ...]
 
