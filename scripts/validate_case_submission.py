@@ -107,6 +107,23 @@ def verify() -> None:
     assert "no external" in contract_doc.lower() or "внеш" in contract_doc
     print(f"PASS: {len(diagram_names)} Mermaid sources synchronized with gallery, "
           f"{len(test_cases)} scenarios, {examples} syntactically valid JSON examples")
+    # A multi-product agent must not silently be presented as Webneft-only.
+    # Official PDF p2 says many products; p6 contains Webneft examples only.
+    assert "десятки внутренних и внешних цифровых продуктов" in main
+    assert "«Вебнефть» — один пример" in main
+    assert "Мультипродуктовый контракт" in main
+    assert "product_id" in main and "taxonomy_version" in main
+    assert "allowed_business_journeys" in prompt_doc
+    assert "allowed_symptom_codes" in prompt_doc
+    assert "не" in contract_doc and "Webneft" in contract_doc
+    assert "product_id" in contract_doc and "taxonomy_version" in contract_doc
+    for case_id in ("T21", "T22", "T23", "T24"):
+        assert f"| {case_id} |" in test_doc, f"Missing cross-product test {case_id}"
+    assert "для всех продуктов" in metrics or "всех продуктов" in metrics
+    outline = read("submissions/presentation-outline.ru.md")
+    assert "Webneft" in outline and "один" in outline
+    assert "10 слайдов" in outline
+    print("PASS: multi-product scope, per-product taxonomy, routing and four product-boundary tests")
     # Economic scenario regression check: arithmetic and textual cross-file consistency.
     finance = read("docs/business/financial-assumptions.md")
     release = read("docs/evaluation/release-gates.md")
