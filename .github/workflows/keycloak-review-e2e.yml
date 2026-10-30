@@ -168,6 +168,49 @@ jobs:
           assert "problems_merged" not in kinds,kinds
           print("PASS two independent votes, third lead approval, two separate persisted Problems")
           PY
+      - name: Explicit CI operator merge after verified human decisions (fixture only)
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine
+          from productpulse.storage.repository import PersistentProblemRegistry
+          store=PersistentProblemRegistry(create_engine(os.environ["DATABASE_URL"]))
+          scope=os.environ["PRODUCTPULSE_SCOPE_ID"]
+          problems=store.read(scope,lambda r:r.list_active())
+          assert len(problems)==2,problems
+          a,b=problems
+          result=store.transact(scope,lambda r:r.merge(
+              a.problem_id,b.problem_id,
+              actor="trusted-ci-operator",reason="Explicit fixture merge after 2 reviewers + independent lead",
+              operation_key="ci-fixture-explicit-merge",
+              expected_primary_revision=a.revision,expected_secondary_revision=b.revision,
+          ))
+          assert len(result.ticket_keys)==2 and result.revision==2,result
+          before=store.read(scope,lambda r:r.insight_proposals(scope))
+          assert len(before)==1 and before[0].approval_status=="pending",before
+          print("PASS explicit CI-only domain merge and read-only pending insight")
+          PY
+      - name: Real Chromium insight approval and separate mock tracker publication
+        working-directory: apps/web
+        run: npx playwright test tests/insights-oidc.browser.spec.ts --reporter=list
+      - name: Audit exact human approval and one mock issue (no external tracker)
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine
+          from productpulse.storage.repository import PersistentProblemRegistry
+          store=PersistentProblemRegistry(create_engine(os.environ["DATABASE_URL"]))
+          scope=os.environ["PRODUCTPULSE_SCOPE_ID"]
+          events=store.audit(scope)
+          kinds=[row["kind"] for row in events]
+          assert kinds.count("problems_merged")==1,kinds
+          assert kinds.count("insight_proposal_approved")==1,kinds
+          assert kinds.count("insight_mock_published")==1,kinds
+          rows=store.read(scope,lambda r:r.insight_proposals(scope))
+          assert len(rows)==1 and rows[0].mock_issue_id=="MOCK-PRB-000001-R2",rows
+          assert rows[0].approval_status=="approved"
+          print("PASS exactly one lead approval + mock issue, no external write")
+          PY
       - name: Upload Playwright traces on failure
         if: failure()
         uses: actions/upload-artifact@v4

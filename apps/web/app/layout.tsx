@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Activity, ArrowUpRight, ClipboardList, Layers3, ShieldCheck, UsersRound } from "lucide-react";
+import { Activity, ArrowUpRight, ClipboardList, Layers3, Lightbulb, ShieldCheck, UsersRound } from "lucide-react";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,7 +12,10 @@ export const metadata: Metadata = {
 const nav = [
   { href: "/", label: "Проблемы", icon: Layers3 },
   { href: "/audit", label: "Аудит", icon: ClipboardList },
-  ...(process.env.PRODUCTPULSE_AUTH_MODE==="oidc" ? [{href:"/review",label:"Экспертная проверка",icon:UsersRound}] : []),
+  ...(process.env.PRODUCTPULSE_AUTH_MODE==="oidc" ? [
+    {href:"/review",label:"Экспертная проверка",icon:UsersRound},
+    {href:"/insights",label:"Предложения",icon:Lightbulb},
+  ] : []),
 ];
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
