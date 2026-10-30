@@ -137,6 +137,12 @@ class TrendOut(BaseModel):
     eligible_for_alert: bool
 
 
+class InsightQuery(BaseModel):
+    # No client-controlled scope / model / proposal membership. Unknown query
+    # parameters are rejected rather than silently ignored.
+    model_config = ConfigDict(extra="forbid")
+
+
 class InsightProposalOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     proposal_id: str
@@ -440,7 +446,10 @@ def create_app(
         response_model=list[InsightProposalOut],
         dependencies=[Depends(require_internal)],
     )
-    def insight_proposals(principal: ReviewerPrincipal = Depends(need_reviewer)):
+    def insight_proposals(
+        params: Annotated[InsightQuery, Query()],
+        principal: ReviewerPrincipal = Depends(need_reviewer),
+    ):
         """Only active explicitly grouped Problems; read-only and tenant-scoped."""
         try:
             return [
