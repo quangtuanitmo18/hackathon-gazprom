@@ -297,3 +297,108 @@ def test_ingestion_refuses_email_in_source_id_without_persistence(api):
     assert result.status_code in (409,422)
     assert "user@corp.example" not in result.text
     assert len(store.read(scope,lambda r:r.list_active()))==2
+
+
+def test_verified_trends_require_service_token_and_oidc_reviewer(api):
+    c, store, scope, keys, base, signed = api
+    url = "/internal/v1/trends"
+    assert c.get(url).status_code == 401
+    assert c.get(url, headers=base).status_code == 401
+    assert c.get(url, headers={"Authorization": "Bearer " + signed("reviewer")}).status_code == 401
+    assert c.get(url, headers=h(base, signed, "bad", tenant="wrong-scope")).status_code in (401, 403)
+    assert c.get(url, headers=h(base, signed, "reviewer")).status_code == 200
+    assert c.get(url + "?window_hours=0", headers=h(base, signed, "reviewer")).status_code == 422
+    assert c.get(url + "?window_hours=169", headers=h(base, signed, "reviewer")).status_code == 422
+    assert c.get(url + "?scope_id=other", headers=h(base, signed, "reviewer")).status_code == 422
+
+
+def test_approved_pair_alone_must_not_create_trend_or_automatically_merge(api):
+    c, store, scope, keys, base, signed = api
+    for who, op in (("reviewer-1", "trend-review-1"), ("reviewer-2", "trend-review-2")):
+        r = c.post("/internal/v1/reviews", headers=h(base, signed, who),
+                   json=vote(keys, op=op))
+        assert r.status_code == 201, r.text
+    r = c.post(
+        "/internal/v1/reviews/approve",
+        headers=h(base, signed, "lead-3", "productpulse_review_lead"),
+        json={"ticket_key_a": keys[0], "ticket_key_b": keys[1],
+              "reason": "Confirmed link, no automatic merge",
+              "operation_key": "trend-lead-3"},
+    )
+    assert r.status_code == 201, r.text
+    before = store.audit(scope)
+    response = c.get("/internal/v1/trends", headers=h(base, signed, "reviewer-1"))
+    assert response.status_code == 200, response.text
+    assert response.json() == []  # Approved link != explicit group membership.
+    assert store.audit(scope) == before
+
+
+def test_three_fully_approved_and_explicitly_merged_tickets_form_volume_signal(api):
+    from productpulse.data.canonical import CanonicalTicketV1, ticket_key
+
+    c, store, scope, keys, base, signed = api
+    now = datetime.now(timezone.utc)
+    member_keys, pids = [], []
+    for name in ("trend-c", "trend-d", "trend-e"):
+        packet = {
+            "source_system": "synthetic",
+            "source_ticket_id": name,
+            "provenance_id": "test",
+            "created_at": (now - timedelta(minutes=20)).isoformat(),
+            "body_redacted": "Сбой авторизации HTTP 403 после обновления",
+        }
+        response = c.post("/internal/v1/tickets", headers=base, json=packet)
+        assert response.status_code == 201, response.text
+        pids.append(response.json()["problem_id"])
+        member_keys.append(ticket_key(CanonicalTicketV1(**packet)))
+
+    # Complete-link: each cross-member pair must have two independent votes
+    # and a separate independent lead approval, before an explicit merge.
+    pairs = [(0, 1), (0, 2), (1, 2)]
+    for i, j in pairs:
+        a, b = member_keys[i], member_keys[j]
+        suffix = str(i) + "-" + str(j)
+        for who in ("first-" + suffix, "second-" + suffix):
+            r = c.post(
+                "/internal/v1/reviews", headers=h(base, signed, who),
+                json={"ticket_key_a": a, "ticket_key_b": b,
+                      "label": "same_incident", "rationale": "Manual comparison",
+                      "operation_key": "trend-vote-" + who},
+            )
+            assert r.status_code == 201, r.text
+        r = c.post(
+            "/internal/v1/reviews/approve",
+            headers=h(base, signed, "lead-" + suffix, "productpulse_review_lead"),
+            json={"ticket_key_a": a, "ticket_key_b": b,
+                  "reason": "Manual approval",
+                  "operation_key": "trend-lead-" + suffix},
+        )
+        assert r.status_code == 201, r.text
+
+    def explicitly_merge(reg):
+        first = reg.merge(
+            pids[0], pids[1], actor="trusted-lead",
+            reason="Full evidence", operation_key="trend-merge-1",
+            expected_primary_revision=1, expected_secondary_revision=1,
+        )
+        reg.merge(
+            pids[0], pids[2], actor="trusted-lead",
+            reason="Full evidence", operation_key="trend-merge-2",
+            expected_primary_revision=first.revision, expected_secondary_revision=1,
+        )
+
+    store.transact(scope, explicitly_merge)
+    before = store.audit(scope)
+    response = c.get("/internal/v1/trends", headers=h(base, signed, "reviewer-1"))
+    assert response.status_code == 200, response.text
+    trends = response.json()
+    assert len(trends) == 1
+    observed = trends[0]
+    assert observed["problem_id"] == pids[0]
+    assert observed["revision"] == 3
+    assert observed["status"] == "new_activity"
+    assert (observed["current_count"], observed["previous_count"]) == (3, 0)
+    assert set(observed["current_ticket_keys"]) == set(member_keys)
+    assert "root_cause" not in observed and "confidence" not in observed
+    assert "body_redacted" not in observed
+    assert store.audit(scope) == before
