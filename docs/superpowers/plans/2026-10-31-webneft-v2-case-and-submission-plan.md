@@ -10,7 +10,7 @@
 
 **Spec:** [`docs/superpowers/specs/2026-10-31-webneft-evidence-first-agent-design.md`](../specs/2026-10-31-webneft-evidence-first-agent-design.md).
 
-**Status: PLANNED / UNAPPROVED.** Do not execute code scope, merge or publish before user acceptance of the architecture and evidence policy.
+**Status: APPROACH C APPROVED by user (2026-10-31); DOCUMENT-ONLY execution now in progress.** No application code or demo is required or authorized by this decision; no merge/deploy. Detailed diagrams and submission files still need content review.
 
 ## Global Constraints
 
@@ -151,9 +151,20 @@
 
 ## Execution order and approvals
 
-- **Step 0:** owner reviews [design](../specs/2026-10-31-webneft-evidence-first-agent-design.md), picks hybrid/rules-only approach and signs off on evidence policy. Until then, this plan is proposed.
+- **Step 0 (DONE, 2026-10-31):** user selected **hybrid C** from [design](../specs/2026-10-31-webneft-evidence-first-agent-design.md) and confirmed **no runtime code** is needed. Detailed components still require editorial/content review.
 - **Highest priority:** Tasks **1→2→3→4→5→6**, each task reviewed with its own evidence/quality gate; avoid parallel modification of the 15k main text before architecture and economics are reconciled.
 - **Optional Task 7:** separate decision after Task 6 plan is on track; not a required contest deliverable.
 - **Verification rule:** after source edits, run actual checker and inspect CI; do not infer correctness from authored Markdown. Leave `feat/webneft-case-v2` and PR #24 Draft until independent review; no automatic merge/deploy.
 
 **Superpowers self-review:** spec coverage: PDF rubric 1–6 and all source/privacy constraints mapped to Tasks 1–6; optional implementation Task 7 isolated. Review focus 1–5 mapped explicitly. No model/provider endpoints fabricated. Each task has a directly inspectable artifact and acceptance.
+
+## Current execution checkpoint — 2026-10-31
+
+- [x] User decision: Hybrid C + documents-first, no application code.
+- [x] DeepSeek evidence audit written: `docs/research/deepseek-webneft-evidence-audit.md`.
+- [x] Four **Mermaid source drafts** written: `docs/diagrams/{c4-containers,data-flow-trust-boundaries,agent-workflow,feedback-sequence}.mmd`.
+- [x] Architecture tradeoffs, service load formulas and assumptions written: `docs/architecture/webneft-v2-architecture.md`.
+- [ ] Render and **visually inspect** source diagrams, correct any Mermaid parse or Cyrillic-layout errors; diagrams not yet considered final presentation assets.
+- [ ] Human editorial verification against original PDF and Webneft source assumptions.
+- [ ] Complete tasks for detailed prompt, KPI, economics and actual DOCX/PDF/PPTX deliverables.
+
