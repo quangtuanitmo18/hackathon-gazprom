@@ -76,9 +76,19 @@ async function request<T>(
   payload:unknown,transport:typeof fetch
 ):Promise<T>{
   const allowed=new Set(["/internal/v1/review-tickets","/internal/v1/review-candidates","/internal/v1/reviews","/internal/v1/reviews/approve"]);
-  if(!allowed.has(path))throw new Error("review upstream path not allowlisted");
   const url=new URL(path,config.baseUrl);
-  if(url.origin!==config.baseUrl)throw new Error("invalid backend origin");
+  if(url.origin!==config.baseUrl || !allowed.has(url.pathname) || url.hash)
+    throw new Error("review upstream path not allowlisted");
+  if(url.search){
+    const params=url.searchParams;
+    const offset=params.get("offset");
+    if(url.pathname!=="/internal/v1/review-tickets" || method!=="GET"
+      || [...params.keys()].some(k=>!["limit","offset"].includes(k))
+      || params.getAll("limit").length!==1 || params.get("limit")!=="50"
+      || params.getAll("offset").length!==1
+      || !offset || !/^(0|[1-9][0-9]*)$/.test(offset)
+      || Number(offset)>500)throw new Error("review evidence pagination is not allowlisted");
+  }
   let response:Response;
   try {
     response=await transport(url.toString(),{
@@ -104,11 +114,23 @@ async function request<T>(
 export async function fetchReviewerData(
   config:BackendConfig,access:string,transport:typeof fetch=fetch
 ):Promise<ReviewData>{
-  const [tickets,reviews,candidates]=await Promise.all([
-    request(config,access,"/internal/v1/review-tickets","GET",z.array(ticketSchema),undefined,transport),
+  const [reviews,candidates]=await Promise.all([
     request(config,access,"/internal/v1/reviews","GET",z.array(progressSchema),undefined,transport),
     request(config,access,"/internal/v1/review-candidates","GET",z.array(candidateSchema),undefined,transport),
   ]);
+  const tickets:ReviewTicket[]=[];
+  // Existing FastAPI exposes max 50 ticket evidence rows per request. Fetch
+  // all pages up to same 500-ticket hard cap as retrieval, otherwise a
+  // suggested pair outside the first 50 cannot be inspected or adjudicated.
+  for(let offset=0;offset<=500;offset+=50){
+    const page=await request(config,access,
+      `/internal/v1/review-tickets?limit=50&offset=${offset}`,
+      "GET",z.array(ticketSchema),undefined,transport);
+    if(page.length>50)throw new ReviewBffError(502,"invalid review evidence page size");
+    if(offset===500&&page.length)throw new ReviewBffError(503,"review evidence capacity exceeded");
+    tickets.push(...page);
+    if(page.length<50)break;
+  }
   return {tickets,reviews,candidates};
 }
 export function submitReviewerAction(
