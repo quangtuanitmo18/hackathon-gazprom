@@ -16,6 +16,8 @@ def build_provenance_manifest(source_url: str, license_id: str, file_path: Path)
     parsed = urlsplit(source_url)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise ValueError("source_url must be an absolute http(s) URL")
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise ValueError("source_url must not contain credentials, query parameters or fragments")
     path = Path(file_path)
     digest = sha256()
     byte_count = 0
