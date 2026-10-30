@@ -9,9 +9,11 @@ from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from typing import Literal
 
+from pydantic import ValidationError
+
 from productpulse.data.canonical import CanonicalTicketV1, ticket_key
 from productpulse.incident.annotation import (
-    PairAnnotation, adjudicate_pair, pair_identity,
+    PairAnnotation, PairLabel, adjudicate_pair, pair_identity,
 )
 
 
@@ -31,6 +33,16 @@ class PairApproval:
     pair_id: str
     ticket_keys: tuple[str, str]
     reviewer_ids: tuple[str, str]
+
+
+@dataclass(frozen=True)
+class ReviewProgress:
+    pair_id: str
+    status: Literal[
+        "awaiting_first_review", "awaiting_second_review", "ready_for_lead",
+        "disputed", "uncertain", "classified", "approved"
+    ]
+    reviewer_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -54,6 +66,7 @@ class ProblemRegistry:
         self._owners: dict[str, str] = {}
         self._problems: dict[str, ProblemRecord] = {}
         self._approved: dict[str, PairApproval] = {}
+        self._reviews: dict[str, tuple[PairAnnotation, ...]] = {}
         self._revoked_at: dict[str, datetime] = {}
         self._events: list[AuditEvent] = []
         self._operations: dict[str, tuple[tuple[object, ...], object]] = {}
@@ -177,6 +190,117 @@ class ProblemRegistry:
         return approved
 
 
+
+    def _review_progress(self, pair_id: str) -> ReviewProgress:
+        reviews = self._reviews.get(pair_id, ())
+        if pair_id in self._approved:
+            status = "approved"
+        elif not reviews:
+            status = "awaiting_first_review"
+        elif len(reviews) == 1:
+            status = "awaiting_second_review"
+        else:
+            first, second = reviews
+            if first.label == "uncertain" or second.label == "uncertain":
+                status = "uncertain"
+            elif first.label != second.label:
+                status = "disputed"
+            elif first.label == "same_incident":
+                status = "ready_for_lead"
+            else:
+                status = "classified"
+        return ReviewProgress(
+            pair_id=pair_id, status=status,
+            reviewer_ids=tuple(review.reviewer_id for review in reviews),
+        )
+
+    def review_statuses(self) -> tuple[ReviewProgress, ...]:
+        """Only review metadata; no ticket contents or claims of gold accuracy."""
+        return tuple(self._review_progress(pair) for pair in sorted(
+            set(self._reviews) | set(self._revoked_at) | set(self._approved)
+        ))
+
+    def submit_review(
+        self, a_key: str, b_key: str, *,
+        reviewer_id: str, label: PairLabel, rationale: str, operation_key: str,
+    ) -> ReviewProgress:
+        """Record one human decision for a registered pair.
+
+        reviewer_id MUST originate from a cryptographically validated OIDC
+        access token in the API, not from an arbitrary HTTP request body.
+        """
+        reviewer_id = self._required(reviewer_id, "reviewer_id")
+        operation_key = self._required(operation_key, "operation_key")
+        if a_key not in self._tickets or b_key not in self._tickets:
+            raise ValueError("both tickets must be registered")
+        if self._scopes[a_key] != self._scopes[b_key]:
+            raise ValueError("cannot review a pair across scope boundaries")
+        pair = pair_identity(self._tickets[a_key], self._tickets[b_key])
+        signature: tuple[object, ...] = (
+            "review", pair, reviewer_id, label, rationale,
+        )
+        old = self._replay(operation_key, signature)
+        if old is not None:
+            if reviewer_id not in (x.reviewer_id for x in self._reviews.get(pair, ())):
+                raise ValueError("revoked review cannot be replayed")
+            assert isinstance(old, ReviewProgress)
+            return old
+        if pair in self._approved:
+            raise ValueError("pair already approved; cannot submit further votes")
+        existing = self._reviews.get(pair, ())
+        if any(x.reviewer_id == reviewer_id for x in existing):
+            raise ValueError("reviewer already reviewed this pair")
+        if len(existing) >= 2:
+            raise ValueError("pair already has two independent reviews")
+        annotation = PairAnnotation(
+            pair_id=pair, label=label, reviewer_id=reviewer_id,
+            rationale=rationale, reviewed_at=datetime.now(timezone.utc),
+        )
+        revocation_time = self._revoked_at.get(pair)
+        if revocation_time and annotation.reviewed_at <= revocation_time:
+            raise ValueError("fresh post-split review required")
+        self._reviews[pair] = (*existing, annotation)
+        result = self._review_progress(pair)
+        self._event("pair_review_submitted", reviewer_id, operation_key,
+                    (self._owners[a_key], self._owners[b_key]),
+                    tuple(sorted((a_key, b_key))))
+        self._operations[operation_key] = (signature, result)
+        return result
+
+    def approve_reviewed_pair(
+        self, a_key: str, b_key: str, *,
+        actor: str, reason: str, operation_key: str,
+    ) -> PairApproval:
+        """Third-person approval; NEVER merges problems as a side effect."""
+        actor = self._required(actor, "actor")
+        reason = self._required(reason, "reason")
+        operation_key = self._required(operation_key, "operation_key")
+        if a_key not in self._tickets or b_key not in self._tickets:
+            raise ValueError("both tickets must be registered")
+        pair = pair_identity(self._tickets[a_key], self._tickets[b_key])
+        signature: tuple[object, ...] = ("lead_review", pair, actor, reason)
+        old = self._replay(operation_key, signature)
+        if old is not None:
+            if pair not in self._approved:
+                raise ValueError("revoked approval cannot be replayed")
+            assert isinstance(old, PairApproval)
+            return old
+        if self._review_progress(pair).status != "ready_for_lead":
+            raise ValueError("pair must be ready_for_lead to approve")
+        first, second = self._reviews[pair]
+        if actor in (first.reviewer_id, second.reviewer_id):
+            raise ValueError("third independent reviewer lead is required")
+        result = self.approve_pair(
+            self._tickets[a_key], self._tickets[b_key],
+            first, second, actor=actor,
+            operation_key="lead-approval:" + operation_key,
+        )
+        self._event("pair_review_lead_approved", actor, operation_key,
+                    (self._owners[a_key], self._owners[b_key]),
+                    tuple(sorted((a_key, b_key))), reason)
+        self._operations[operation_key] = (signature, result)
+        return result
+
     def merge(
         self, primary_id: str, secondary_id: str,
         *, actor: str, reason: str, operation_key: str,
@@ -299,6 +423,7 @@ class ProblemRegistry:
         revocation_time = datetime.now(timezone.utc)
         for pair in to_revoke:
             self._approved.pop(pair)
+            self._reviews.pop(pair, None)
             self._revoked_at[pair] = revocation_time
 
         self._event(
@@ -317,6 +442,8 @@ class ProblemRegistry:
                 return {"kind": "problem", "value": asdict(value)}
             if isinstance(value, PairApproval):
                 return {"kind": "approval", "value": asdict(value)}
+            if isinstance(value, ReviewProgress):
+                return {"kind": "review_progress", "value": asdict(value)}
             if isinstance(value, tuple) and all(isinstance(v, ProblemRecord) for v in value):
                 return {"kind": "problems", "value": [asdict(v) for v in value]}
             raise TypeError("unsupported domain operation result")
@@ -328,6 +455,8 @@ class ProblemRegistry:
             "owners": dict(self._owners),
             "problems": {key: asdict(value) for key, value in self._problems.items()},
             "approved": {key: asdict(value) for key, value in self._approved.items()},
+            "reviews": {key: [review.model_dump(mode="json") for review in values]
+                        for key, values in self._reviews.items()},
             "revoked_at": {key: value.isoformat() for key, value in self._revoked_at.items()},
             "events": [dict(asdict(event), at=event.at.isoformat()) for event in self._events],
             "operations": {
@@ -372,6 +501,10 @@ class ProblemRegistry:
         reg._owners = dict(payload["owners"])
         reg._problems = {key: restore_problem(v) for key, v in payload["problems"].items()}
         reg._approved = {key: restore_approval(v) for key, v in payload["approved"].items()}
+        if not isinstance(payload.get("reviews", {}), dict):
+            raise ValueError("invalid reviews snapshot mapping")
+        reg._reviews = {key: tuple(PairAnnotation.model_validate(x) for x in values)
+                        for key, values in payload.get("reviews", {}).items()}
         reg._revoked_at = {key: datetime.fromisoformat(value)
                            for key, value in payload["revoked_at"].items()}
         reg._events = [
@@ -389,6 +522,10 @@ class ProblemRegistry:
                 result = restore_problem(data["value"])
             elif kind == "approval":
                 result = restore_approval(data["value"])
+            elif kind == "review_progress":
+                v = data["value"]
+                result = ReviewProgress(pair_id=v["pair_id"],status=v["status"],
+                                        reviewer_ids=tuple(v["reviewer_ids"]))
             elif kind == "problems":
                 result = tuple(restore_problem(p) for p in data["value"])
             else:
@@ -417,6 +554,15 @@ class ProblemRegistry:
         if any(any(key not in keys for key in ap.ticket_keys)
                for ap in reg._approved.values()):
             raise ValueError("snapshot contains unknown ticket approval")
+        for pair, reviews in reg._reviews.items():
+            if len(reviews) > 2 or len(set(x.reviewer_id for x in reviews)) != len(reviews):
+                raise ValueError("invalid independent reviews in snapshot")
+            if any(x.pair_id != pair for x in reviews):
+                raise ValueError("invalid pair identity in review snapshot")
+            if pair in reg._revoked_at and any(
+                x.reviewed_at <= reg._revoked_at[pair] for x in reviews
+            ):
+                raise ValueError("revoked old reviews in snapshot")
         if any(value.tzinfo is None or value.utcoffset() is None
                for value in reg._revoked_at.values()):
             raise ValueError("snapshot contains naive revocation timestamp")
