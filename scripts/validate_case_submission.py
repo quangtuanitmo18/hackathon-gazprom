@@ -136,6 +136,18 @@ def verify() -> None:
             shown = thousands(scenario[amount])
             assert shown in finance, f"finance missing {scenario['id']}: {shown}"
             assert shown in main, f"main missing {scenario['id']}: {shown}"
+    base_scenario = next(s for s in case_model["scenarios"] if s["id"] == "base")
+    b_annual = base_scenario["expected_gross_annual_rub"]
+    k_real = base_scenario["realizable_fraction"]
+    for test in case_model["sensitivity"]["expected_pv_base_rub"]:
+        dr = test["nominal_discount_rate"]
+        ng = test["nominal_hourly_value_growth"]
+        pv = sum(b_annual * k_real * (1 + ng) ** (t - 1) / (1 + dr) ** t
+                 for t in range(1, common["years"] + 1))
+        assert round(pv) == test["expected_rub"], f"sensitivity mismatch: {dr=} {ng=}"
+        assert thousands(test["expected_rub"]) in finance, "finance sensitivity missing"
+        assert thousands(test["expected_rub"]) in main, "main sensitivity missing"
+    assert len(case_model["sensitivity"]["expected_pv_base_rub"]) >= 4
     assert "unknown_coverage" in metrics
     assert "reviewed/sent" in metrics
     assert "recall" in annotation.lower()
