@@ -9,9 +9,9 @@ from __future__ import annotations
 import os
 from dataclasses import asdict
 from secrets import compare_digest
-from typing import Literal
+from typing import Literal, Annotated
 
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import create_engine
 
@@ -45,6 +45,24 @@ class AuditOut(BaseModel):
     reason: str
     revoked_pair_ids: tuple[str, ...]
 
+
+
+class ReviewTicketQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    limit: int = Field(default=50, ge=1, le=50)
+    offset: int = Field(default=0, ge=0)
+
+
+class ReviewTicketOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ticket_key: str
+    source_system: str
+    source_ticket_id: str
+    product_id: str | None = None
+    component_id: str | None = None
+    reported_version: str | None = None
+    error_codes: tuple[str, ...] = ()
+    body_redacted: str | None = None
 
 
 class ReviewInput(BaseModel):
@@ -175,6 +193,34 @@ def create_app(
 
     def need_lead(authorization: str | None = Header(default=None)):
         return authenticated_reviewer(authorization, "productpulse_review_lead")
+
+    @app.get(
+        "/internal/v1/review-tickets",
+        response_model=list[ReviewTicketOut],
+        dependencies=[Depends(require_internal)],
+    )
+    def review_evidence(
+        params: Annotated[ReviewTicketQuery, Query()],
+        principal: ReviewerPrincipal = Depends(need_reviewer),
+    ):
+        # Reviewer identity/scope is validated by OIDC before any ticket text
+        # is returned. Data MUST already be redacted before ingestion.
+        rows = store.read(scope_id, lambda r: r.list_review_tickets(
+            limit=params.limit, offset=params.offset
+        ))
+        return [
+            ReviewTicketOut(
+                ticket_key=key,
+                source_system=ticket.source_system,
+                source_ticket_id=ticket.source_ticket_id,
+                product_id=ticket.product_id,
+                component_id=ticket.component_id,
+                reported_version=ticket.reported_version,
+                error_codes=ticket.error_codes,
+                body_redacted=ticket.body_redacted[:2000] if ticket.body_redacted else None,
+            )
+            for key, ticket in rows
+        ]
 
     @app.get(
         "/internal/v1/reviews",
