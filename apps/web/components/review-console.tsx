@@ -56,7 +56,9 @@ export function ReviewConsole({displayName}:{displayName:string}){
       const resp=await fetch("/api/review",{cache:"no-store"});
       if(!resp.ok)throw Error(`HTTP ${resp.status}`);
       const payload=await resp.json() as ReviewData;
-      if(!Array.isArray(payload.tickets)||!Array.isArray(payload.reviews))throw Error("Некорректные данные");
+      if(!Array.isArray(payload.tickets)||!Array.isArray(payload.reviews)||
+        !Array.isArray(payload.candidates)||!Array.isArray(payload.activity))
+        throw Error("Некорректные данные");
       setData(payload);setError(null);
     }catch(e){setError(`Не удалось загрузить данные: ${String(e)}`);}
     finally{setLoading(false);}
@@ -66,6 +68,17 @@ export function ReviewConsole({displayName}:{displayName:string}){
   const b=data?.tickets.find(t=>t.ticket_key===second);
   const pair=useMemo(()=>first&&second&&first!==second?pairId(first,second):null,[first,second]);
   const progress=pair?data?.reviews.find(r=>r.pair_id===pair):undefined;
+  // Selecting a different pair resets stale free-text decisions. The reviewer
+  // must consciously inspect both redacted evidence panels before voting.
+  const choosePair=(aKey:string,bKey:string)=>{
+    if(aKey===bKey || !data?.tickets.some(t=>t.ticket_key===aKey) ||
+       !data.tickets.some(t=>t.ticket_key===bKey)){
+      setError("Доказательства пары недоступны. Обновите страницу.");return;
+    }
+    setFirst(aKey);setSecond(bKey);
+    setLabel("uncertain");setRationale("");setReason("");
+    setError(null);setSuccess(null);
+  };
   const canVote=Boolean(a&&b&&first!==second&&!busy&&rationale.trim().length>=3);
   const canApprove=Boolean(progress?.status==="ready_for_lead"&&a&&b&&reason.trim().length>=3&&!busy);
   async function act(action:"vote"|"approve"){
@@ -93,6 +106,47 @@ export function ReviewConsole({displayName}:{displayName:string}){
     {loading&&<div className="review-message">Загрузка обращений и статусов…</div>}
     {error&&<div className="failure-panel" role="alert">{error}</div>}
     {success&&<div className="review-success" role="status">{success}</div>}
+    <section className="review-recommendations" aria-label="Ранняя активность — не подтверждено">
+      <div className="surface-heading">
+        <div>
+          <h2>Ранняя активность — не подтверждено</h2>
+          <p>Пары по сходству текста и времени обращения. Это гипотезы для проверки, а не обнаруженные инциденты.</p>
+        </div>
+        <span className="section-count">{data?.activity?.length??0} пар для проверки</span>
+      </div>
+      {data?.activity?.length ? (
+        <div className="candidate-items">
+          {data.activity.map((item,i)=>(
+            <button
+              type="button"
+              key={item.ticket_key_a+"|"+item.ticket_key_b}
+              className="candidate-option"
+              aria-label={`Ранняя пара ${i+1}: открыть доказательства`}
+              onClick={()=>choosePair(item.ticket_key_a,item.ticket_key_b)}
+            >
+              <span className="candidate-index">{String(i+1).padStart(2,"0")}</span>
+              <span className="candidate-content">
+                <strong>{item.ticket_key_a} ↔ {item.ticket_key_b}</strong>
+                <small>{item.recent_pattern==="both_current"
+                  ?"Оба обращения в текущем окне"
+                  :"Новое обращение и обращение из предыдущего окна"}
+                  {" · "}BM25 rank #{item.rank} · покрытие истории не подтверждено
+                </small>
+                <small>UTC: {new Date(item.created_at_a).toLocaleString("ru-RU",{timeZone:"UTC"})}
+                  {" ↔ "}{new Date(item.created_at_b).toLocaleString("ru-RU",{timeZone:"UTC"})}
+                </small>
+                <small>Лексические признаки: {item.signals.join(", ")}</small>
+              </span>
+              <span className="candidate-rank">Не инцидент · без автооповещения</span>
+            </button>
+          ))}
+        </div>
+      ) : !loading&&!error&&(
+        <div className="candidate-empty">
+          Нет неподтверждённых пар в текущем временном окне. Это не означает, что в системе нет инцидентов.
+        </div>
+      )}
+    </section>
     <section className="review-recommendations" aria-label="Рекомендованные пары">
       <div className="surface-heading">
         <div>
@@ -109,7 +163,7 @@ export function ReviewConsole({displayName}:{displayName:string}){
               key={candidate.ticket_key_a+"|"+candidate.ticket_key_b}
               className="candidate-option"
               aria-label={`Предложение ${i+1}: выбрать пару тикетов`}
-              onClick={()=>{setFirst(candidate.ticket_key_a);setSecond(candidate.ticket_key_b);setError(null);setSuccess(null);}}
+              onClick={()=>choosePair(candidate.ticket_key_a,candidate.ticket_key_b)}
             >
               <span className="candidate-index">{String(i+1).padStart(2,"0")}</span>
               <span className="candidate-content">
