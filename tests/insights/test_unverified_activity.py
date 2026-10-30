@@ -5,6 +5,7 @@ import pytest
 
 from productpulse.data.canonical import CanonicalTicketV1, ticket_key
 from productpulse.insights.unverified_activity import list_unverified_activity
+from productpulse.incident.candidates import rank_review_candidates
 
 NOW = datetime(2026, 10, 30, 15, tzinfo=timezone.utc)
 MESSAGE = "Авторизация платежный шлюз HTTP 403 токен сессии отклонен"
@@ -144,16 +145,20 @@ def test_missing_event_time_omitted_without_fabricating_observation_time():
 
 
 def test_recent_pair_not_starved_by_100_prior_only_pairs_in_ranked_shortlist():
-    # Prior-only pairs must be filtered BEFORE the candidate ranker top-K,
-    # otherwise 153 high-ranking old/old pairs can hide new pair evidence.
+    # More than 100 old/old candidates share query rank=1. With an
+    # unfiltered top-100 shortlist they starve the new/new pair entirely.
     older = [
         (ticket("old-" + str(i), 30, text="Сбой поиска документа склад HTTP 500"), "old-owner-" + str(i))
-        for i in range(18)
+        for i in range(130)
     ]
     recent = [
         (ticket("recent-" + str(i), i + 1, text="Авторизация платежный шлюз HTTP 403 токен сессии отклонен"), "new-owner-" + str(i))
         for i in range(2)
     ]
     keys = {ticket_key(t) for t, _ in recent}
+    unfiltered = rank_review_candidates(rows(*(older + recent)), limit=100)
+    assert len(unfiltered) == 100
+    assert not any({v["ticket_key_a"], v["ticket_key_b"]} == keys for v in unfiltered)
+    # The app-side filter now applies BEFORE top-K, so the pair survives.
     result = activity(*(older + recent))
     assert any({row.ticket_key_a, row.ticket_key_b} == keys for row in result)
