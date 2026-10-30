@@ -1,0 +1,95 @@
+name: Rereflect pinned upstream fit-gap smoke
+
+on:
+  push:
+    branches: [spike/rereflect-fit-gap]
+    paths:
+      - ".github/workflows/spike-rereflect.yml"
+      - "scripts/spikes/rereflect_api_probe.py"
+  workflow_dispatch:
+
+# Upstream code executes ONLY on an ephemeral runner, no repository secrets,
+# no persistence, no deployment, no write token.
+permissions:
+  contents: read
+
+jobs:
+  backend-api-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    env:
+      DOCKER_BUILDKIT: "1"
+      COMPOSE_DOCKER_CLI_BUILD: "1"
+    steps:
+      - name: Checkout ProductPulse spike (read-only)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned upstream Rereflect (read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: haqaliz/rereflect
+          ref: 987dd9f0611c693524ec0cfba880517fa4d5ec57
+          path: upstream
+          persist-credentials: false
+      - name: Verify exact upstream SHA + environment capabilities
+        run: |
+          test "$(git -C upstream rev-parse HEAD)" = "987dd9f0611c693524ec0cfba880517fa4d5ec57"
+          docker version --format '{{.Server.Version}}'
+          docker compose version
+      - name: Create ephemeral credentials (not logged or uploaded)
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import secrets,base64
+          def token(n=32): return secrets.token_urlsafe(n)
+          params={
+            "POSTGRES_USER":"rereflect",
+            "POSTGRES_PASSWORD":token(24),
+            "POSTGRES_DB":"rereflect",
+            "JWT_SECRET":token(48),
+            "LLM_ENCRYPTION_KEY":base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(),
+            "ADMIN_EMAIL":"spike-admin@example.invalid",
+            "ADMIN_PASSWORD":token(24),
+            "ai_analysis_enabled":"false",
+            "SELF_HOSTED":"true",
+            "OPENAI_API_KEY":"",
+            "ANTHROPIC_API_KEY":"",
+            "GOOGLE_AI_API_KEY":"",
+            "SENTRY_DSN":"",
+          }
+          p=Path("upstream/.env")
+          p.write_text("".join(f"{k}={v}\n" for k,v in params.items()))
+          p.chmod(0o600)
+          PY
+      - name: Validate production Docker Compose manifest
+        working-directory: upstream
+        run: docker compose -f docker-compose.prod.yml config --quiet
+      - name: Build and start Postgres + Redis + backend
+        working-directory: upstream
+        run: |
+          docker compose -f docker-compose.prod.yml up -d --build --wait --wait-timeout 180 postgres redis backend
+      - name: Smoke actual HTTP API against local backend
+        run: python scripts/spikes/rereflect_api_probe.py
+      - name: Capture service status (no config/env dump)
+        if: always()
+        working-directory: upstream
+        run: docker compose -f docker-compose.prod.yml ps || true
+      - name: Upload smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rereflect-pinned-backend-smoke
+          path: docs/spikes/evidence/rereflect-runtime.json
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Capture limited backend logs on failure
+        if: failure()
+        working-directory: upstream
+        run: |
+          docker compose -f docker-compose.prod.yml logs --tail=100 backend | \
+          sed -E 's/(Bearer[[:space:]]+)[A-Za-z0-9._-]+/\1[REDACTED]/g' | tail -100 || true
+      - name: Tear down ephemeral services and volumes
+        if: always()
+        working-directory: upstream
+        run: docker compose -f docker-compose.prod.yml down -v --remove-orphans || true

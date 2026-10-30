@@ -1,0 +1,35 @@
+name: Rereflect default Russian-language smoke
+
+on:
+  push:
+    branches: [spike/rereflect-fit-gap]
+    paths:
+      - ".github/workflows/spike-rereflect-language.yml"
+      - "scripts/spikes/rereflect_ru_categorizer_probe.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-language-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: haqaliz/rereflect
+          ref: 987dd9f0611c693524ec0cfba880517fa4d5ec57
+          path: upstream
+          persist-credentials: false
+      - run: python scripts/spikes/rereflect_ru_categorizer_probe.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rereflect-language-synthetic-evidence
+          path: docs/spikes/evidence/rereflect-language.json
+          retention-days: 30
+          if-no-files-found: warn
