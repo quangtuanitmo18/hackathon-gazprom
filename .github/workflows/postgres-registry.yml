@@ -2,7 +2,7 @@ name: PostgreSQL Problem Registry Integration
 
 on:
   push:
-    branches: [feat/postgres-problem-registry, feat/internal-incident-api, feat/oidc-reviewer-workflow]
+    branches: [feat/postgres-problem-registry, feat/internal-incident-api, feat/oidc-reviewer-workflow, feat/retrieval-review-queue]
     paths:
       - '.github/workflows/postgres-registry.yml'
       - 'src/productpulse/incident/registry.py'

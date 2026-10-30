@@ -34,7 +34,7 @@ test("fetch scoped evidence forwards both tokens privately to fixed upstream ori
     return new Response(JSON.stringify([]),{status:200,headers:{"Content-Type":"application/json"}});
   }) as typeof fetch;
   const results=await fetchReviewerData(cfg,jwt.reviewerAccessToken,transport);
-  assert.deepEqual(results,{tickets:[],reviews:[]});
+  assert.deepEqual(results,{tickets:[],reviews:[],candidates:[]});
   assert.equal(record.auth,"Bearer "+jwt.reviewerAccessToken);
   assert.equal(record.service,cfg.token);
   assert.ok(record.url?.startsWith(cfg.baseUrl+"/internal/v1/"));
@@ -71,4 +71,42 @@ test("malformed Origin is denied with 403 rather than internal error",()=>{
     assert.equal((e as {status:number}).status,403);
     return true;
   });
+});
+
+test("server validates candidate queue schema, never accepts fabricated confidence",async()=>{
+  const fake={ticket_key_a:"synthetic1:a",ticket_key_b:"synthetic1:b",rank:1,signals:["lexical_overlap"]};
+  const transport=(async(input:RequestInfo|URL)=>{
+    const url=String(input);
+    return new Response(JSON.stringify(url.includes("review-candidates")?[fake]:[]),
+      {status:200,headers:{"Content-Type":"application/json"}});
+  }) as typeof fetch;
+  const results=await fetchReviewerData(cfg,jwt.reviewerAccessToken,transport);
+  assert.equal(results.candidates.length,1);
+  assert.deepEqual(results.candidates[0],fake);
+  const fabricated=(async(input:RequestInfo|URL)=>{
+    const url=String(input);
+    return new Response(JSON.stringify(url.includes("review-candidates")?[{...fake,confidence:0.99}]:[]),
+      {status:200,headers:{"Content-Type":"application/json"}});
+  }) as typeof fetch;
+  await assert.rejects(fetchReviewerData(cfg,jwt.reviewerAccessToken,fabricated),/invalid upstream/);
+});
+
+test("reviewer evidence fetches beyond first 50 so ranked pair remains selectable",async()=>{
+  const makeTicket=(i:number)=>({
+    ticket_key:"synthetic"+i,source_system:"synthetic",source_ticket_id:String(i),
+    product_id:"erp",component_id:"auth",reported_version:"2.1",
+    error_codes:[],body_redacted:"Synthetic HTTP 403",
+  });
+  const seen:string[]=[];
+  const transport=(async(input:RequestInfo|URL)=>{
+    const url=String(input);seen.push(url);
+    const body=url.includes("/review-tickets")
+      ? (url.includes("offset=50")?[makeTicket(51)]:Array.from({length:50},(_,i)=>makeTicket(i+1)))
+      : [];
+    return new Response(JSON.stringify(body),{status:200,headers:{"Content-Type":"application/json"}});
+  }) as typeof fetch;
+  const data=await fetchReviewerData(cfg,jwt.reviewerAccessToken,transport);
+  assert.equal(data.tickets.length,51);
+  assert.ok(data.tickets.some(t=>t.ticket_key==="synthetic51"));
+  assert.ok(seen.some(url=>url.includes("offset=50")));
 });

@@ -226,3 +226,74 @@ def test_review_evidence_is_bounded_and_does_not_allow_client_scope_override(api
     assert len(c.get("/internal/v1/review-tickets?limit=1",headers=headers).json())==1
     assert c.get("/internal/v1/review-tickets?limit=501",headers=headers).status_code==422
     assert c.get("/internal/v1/review-tickets?scope_id=other",headers=headers).status_code==422
+
+
+def test_ranked_candidate_endpoint_requires_both_tokens_and_is_not_a_verdict(api):
+    c,store,scope,keys,base,signed=api
+    # The two existing synthetic tickets have exactly the same lexical text.
+    assert c.get("/internal/v1/review-candidates",headers=base).status_code==401
+    assert c.get("/internal/v1/review-candidates").status_code==401
+    bad=c.get("/internal/v1/review-candidates",
+              headers=h(base,signed,"someone",tenant="cross-tenant"))
+    assert bad.status_code in (401,403)
+    found=c.get("/internal/v1/review-candidates",
+                headers=h(base,signed,"reviewer-A"))
+    assert found.status_code==200,found.text
+    rows=found.json()
+    assert len(rows)==1
+    assert set((rows[0]["ticket_key_a"],rows[0]["ticket_key_b"]))==set(keys)
+    assert rows[0]["rank"]>=1 and rows[0]["rank"]<=30
+    assert "confidence" not in rows[0] and "is_duplicate" not in rows[0]
+    assert "body_redacted" not in rows[0]
+    assert c.get("/internal/v1/review-candidates?limit=101",
+        headers=h(base,signed,"reviewer-A")).status_code==422
+    assert c.get("/internal/v1/review-candidates?scope_id=other",
+        headers=h(base,signed,"reviewer-A")).status_code==422
+
+
+def test_confirmed_duplicate_pair_not_recommended_after_lead_approval(api):
+    c,store,scope,keys,base,signed=api
+    c.post("/internal/v1/reviews",headers=h(base,signed,"reviewer-A"),
+        json=vote(keys,"same_incident","pair-1-a"))
+    c.post("/internal/v1/reviews",headers=h(base,signed,"reviewer-B"),
+        json=vote(keys,"same_incident","pair-1-b"))
+    approved=c.post("/internal/v1/reviews/approve",
+        headers=h(base,signed,"third-lead","productpulse_review_lead"),
+        json={"ticket_key_a":keys[0],"ticket_key_b":keys[1],
+              "reason":"Independent verified", "operation_key":"pair-1-approved"})
+    assert approved.status_code==201
+    ranked=c.get("/internal/v1/review-candidates",headers=h(base,signed,"reviewer-A"))
+    assert ranked.status_code==200 and ranked.json()==[]
+
+
+def test_ingestion_redacts_synthetic_email_and_secret_before_database(api):
+    c,store,scope,keys,base,signed=api
+    secret="Bearer abcDEF123456789.fake.synthetic.token"
+    raw="Сбой HTTP 403: напишите test-reviewer@example.com "+secret
+    packet={"source_system":"synthetic","source_ticket_id":"pii-probe",
+            "provenance_id":"privacy-test","title":"Сбой у test-reviewer@example.com",
+            "body_redacted":raw}
+    response=c.post("/internal/v1/tickets",headers=base,json=packet)
+    assert response.status_code==201,response.text
+    persisted=store.read(scope,lambda r:r.to_state())
+    body=str(persisted)
+    assert "test-reviewer@example.com" not in body
+    assert "abcDEF123456789" not in body
+    exposed=c.get("/internal/v1/review-tickets",
+        headers=h(base,signed,"reviewer-A"))
+    assert exposed.status_code==200
+    assert "test-reviewer@example.com" not in exposed.text
+    assert "abcDEF123456789" not in exposed.text
+    again=c.post("/internal/v1/tickets",headers=base,json=packet)
+    assert again.status_code==201
+    assert again.json()["problem_id"]==response.json()["problem_id"]
+
+
+def test_ingestion_refuses_email_in_source_id_without_persistence(api):
+    c,store,scope,keys,base,signed=api
+    packet={"source_system":"synthetic","source_ticket_id":"user@corp.example",
+            "provenance_id":"privacy-test","body_redacted":"Ошибка HTTP 403"}
+    result=c.post("/internal/v1/tickets",headers=base,json=packet)
+    assert result.status_code in (409,422)
+    assert "user@corp.example" not in result.text
+    assert len(store.read(scope,lambda r:r.list_active()))==2

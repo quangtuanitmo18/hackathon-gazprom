@@ -14,6 +14,11 @@ const progressSchema=z.object({
   pair_id:z.string(),reviewer_ids:z.array(z.string()),
   status:z.enum(["awaiting_first_review","awaiting_second_review","ready_for_lead","disputed","uncertain","classified","approved"]),
 }).strict();
+const candidateSchema=z.object({
+  ticket_key_a:z.string(),ticket_key_b:z.string(),rank:z.number().int().positive(),
+  signals:z.array(z.enum(["lexical_overlap","same_product","same_component","shared_error_code"])),
+}).strict().refine(x=>x.ticket_key_a!==x.ticket_key_b,{message:"invalid candidate pair"});
+
 const approvalSchema=z.object({pair_id:z.string(),ticket_keys:z.tuple([z.string(),z.string()]),reviewer_ids:z.tuple([z.string(),z.string()])}).strict();
 const voteSchema=z.object({
   ticket_key_a:z.string().min(1).max(512),
@@ -33,7 +38,8 @@ export type ReviewTicket=z.infer<typeof ticketSchema>;
 export type ReviewProgress=z.infer<typeof progressSchema>;
 export type ReviewInput=z.infer<typeof voteSchema>;
 export type LeadInput=z.infer<typeof approveSchema>;
-export type ReviewData={tickets:ReviewTicket[],reviews:ReviewProgress[]};
+export type ReviewCandidate=z.infer<typeof candidateSchema>;
+export type ReviewData={tickets:ReviewTicket[],reviews:ReviewProgress[],candidates:ReviewCandidate[]};
 export class ReviewBffError extends Error {
   constructor(public readonly status:number,message:string){super(message);}
 }
@@ -69,10 +75,20 @@ async function request<T>(
   config:BackendConfig,access:string,path:string,method:"GET"|"POST",parser:z.ZodType<T>,
   payload:unknown,transport:typeof fetch
 ):Promise<T>{
-  const allowed=new Set(["/internal/v1/review-tickets","/internal/v1/reviews","/internal/v1/reviews/approve"]);
-  if(!allowed.has(path))throw new Error("review upstream path not allowlisted");
+  const allowed=new Set(["/internal/v1/review-tickets","/internal/v1/review-candidates","/internal/v1/reviews","/internal/v1/reviews/approve"]);
   const url=new URL(path,config.baseUrl);
-  if(url.origin!==config.baseUrl)throw new Error("invalid backend origin");
+  if(url.origin!==config.baseUrl || !allowed.has(url.pathname) || url.hash)
+    throw new Error("review upstream path not allowlisted");
+  if(url.search){
+    const params=url.searchParams;
+    const offset=params.get("offset");
+    if(url.pathname!=="/internal/v1/review-tickets" || method!=="GET"
+      || [...params.keys()].some(k=>!["limit","offset"].includes(k))
+      || params.getAll("limit").length!==1 || params.get("limit")!=="50"
+      || params.getAll("offset").length!==1
+      || !offset || !/^(0|[1-9][0-9]*)$/.test(offset)
+      || Number(offset)>500)throw new Error("review evidence pagination is not allowlisted");
+  }
   let response:Response;
   try {
     response=await transport(url.toString(),{
@@ -98,11 +114,24 @@ async function request<T>(
 export async function fetchReviewerData(
   config:BackendConfig,access:string,transport:typeof fetch=fetch
 ):Promise<ReviewData>{
-  const [tickets,reviews]=await Promise.all([
-    request(config,access,"/internal/v1/review-tickets","GET",z.array(ticketSchema),undefined,transport),
+  const [reviews,candidates]=await Promise.all([
     request(config,access,"/internal/v1/reviews","GET",z.array(progressSchema),undefined,transport),
+    request(config,access,"/internal/v1/review-candidates","GET",z.array(candidateSchema),undefined,transport),
   ]);
-  return {tickets,reviews};
+  const tickets:ReviewTicket[]=[];
+  // Existing FastAPI exposes max 50 ticket evidence rows per request. Fetch
+  // all pages up to same 500-ticket hard cap as retrieval, otherwise a
+  // suggested pair outside the first 50 cannot be inspected or adjudicated.
+  for(let offset=0;offset<=500;offset+=50){
+    const page=await request(config,access,
+      `/internal/v1/review-tickets?limit=50&offset=${offset}`,
+      "GET",z.array(ticketSchema),undefined,transport);
+    if(page.length>50)throw new ReviewBffError(502,"invalid review evidence page size");
+    if(offset===500&&page.length)throw new ReviewBffError(503,"review evidence capacity exceeded");
+    tickets.push(...page);
+    if(page.length<50)break;
+  }
+  return {tickets,reviews,candidates};
 }
 export function submitReviewerAction(
   config:BackendConfig,access:string,action:"vote"|"approve",body:unknown,transport:typeof fetch=fetch

@@ -22,7 +22,10 @@ async function selectPair(page:Page) {
 
 test("actual Keycloak: reviewer A + reviewer B + independent lead can approve but not merge",async({browser})=>{
   const one=await signInAs(browser,"reviewer-a","ci-reviewer-A-2026-only");
-  await selectPair(one.page);
+  await expect(one.page.getByRole("button",{name:/Предложение 1/})).toBeVisible();
+  await one.page.getByRole("button",{name:/Предложение 1/}).click();
+  await expect(one.page.getByRole("combobox",{name:"Первое обращение"})).toHaveValue(/synthetic/);
+  await expect(one.page.getByRole("combobox",{name:"Второе обращение"})).toHaveValue(/synthetic/);
   await one.page.getByText("Одна техническая проблема",{exact:true}).click();
   await one.page.getByRole("textbox",{name:"Обоснование по фактам"}).fill("Same HTTP stack trace, regression version and reproduction steps");
   await one.page.getByRole("button",{name:"Отправить независимую оценку"}).click();
