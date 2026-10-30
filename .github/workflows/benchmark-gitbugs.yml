@@ -1,0 +1,48 @@
+name: Benchmark GitBugs positive-link retrieval
+
+on:
+  push:
+    branches: [feat/duplicate-retrieval-baseline]
+    paths:
+      - scripts/run_duplicate_baseline.py
+      - .github/workflows/benchmark-gitbugs.yml
+      - src/productpulse/eval/duplicate_retrieval.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  measured-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install benchmark dependencies
+        run: python -m pip install -e ".[dev,benchmark]"
+      - name: Verify project unit tests
+        run: python -m pytest -q
+      - name: Download pinned real GitBugs Hadoop source and audit it
+        run: python scripts/datasets/audit_gitbugs.py
+      - name: Run static positive-only retrieval evaluation
+        run: python scripts/run_duplicate_baseline.py
+      - name: Upload aggregate evaluation
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitbugs-hadoop-tfidf-evaluation
+          path: docs/evaluation/gitbugs-hadoop-tfidf-baseline.json
+          retention-days: 30
+      - name: Publish aggregate result only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/evaluation/gitbugs-hadoop-tfidf-baseline.json
+          if ! git diff --cached --quiet; then
+            git commit -m "eval: record measured GitBugs TF-IDF baseline [skip ci]"
+            git push
+          fi
