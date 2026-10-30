@@ -1,0 +1,155 @@
+name: Real Keycloak OIDC + PostgreSQL + Next.js Reviewer E2E
+
+on:
+  push:
+    branches: [feat/keycloak-review-console]
+    paths:
+      - '.github/workflows/keycloak-review-e2e.yml'
+      - 'apps/web/**'
+      - 'src/productpulse/api/**'
+      - 'src/productpulse/incident/**'
+      - 'tests/e2e/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actual-keycloak:
+    runs-on: ubuntu-latest
+    timeout-minutes: 26
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: productpulse
+          POSTGRES_PASSWORD: ci_only_db
+          POSTGRES_DB: productpulse_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd=pg_isready
+          --health-interval=5s --health-timeout=5s --health-retries=15
+    env:
+      DATABASE_URL: postgresql+psycopg://productpulse:ci_only_db@127.0.0.1:5432/productpulse_ci
+      PRODUCTPULSE_SCOPE_ID: e2e-demo
+      PRODUCTPULSE_INTERNAL_TOKEN: ci-service-only-synthetic-internal-token-2026
+      PRODUCTPULSE_BACKEND_URL: http://127.0.0.1:8000
+      PRODUCTPULSE_AUTH_MODE: oidc
+      PRODUCTPULSE_PUBLIC_ORIGIN: http://localhost:3000
+      AUTH_SECRET: ci-authjs-cookie-encryption-not-a-real-secret-1234567890
+      AUTH_KEYCLOAK_ISSUER: https://localhost:8443/realms/productpulse-e2e
+      AUTH_KEYCLOAK_ID: productpulse-web
+      AUTH_KEYCLOAK_SECRET: ci-keycloak-test-only-unique-client-secret-1234567
+      PRODUCTPULSE_OIDC_ISSUER: https://localhost:8443/realms/productpulse-e2e
+      PRODUCTPULSE_OIDC_AUDIENCE: productpulse-review-api
+      PRODUCTPULSE_OIDC_JWKS_URL: https://localhost:8443/realms/productpulse-e2e/protocol/openid-connect/certs
+      AUTH_URL: http://localhost:3000
+      AUTH_TRUST_HOST: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Create ephemeral localhost TLS certificate with local test CA
+        run: |
+          mkdir -p /tmp/pp-kc
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1             -keyout /tmp/pp-kc/tls.key -out /tmp/pp-kc/tls.crt             -subj "/CN=localhost"             -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"             -addext "basicConstraints=critical,CA:TRUE" >/dev/null 2>&1
+          chmod 644 /tmp/pp-kc/tls.crt /tmp/pp-kc/tls.key
+          sudo cp /tmp/pp-kc/tls.crt /usr/local/share/ca-certificates/productpulse-keycloak-ci.crt
+          sudo update-ca-certificates >/dev/null
+          echo "NODE_EXTRA_CA_CERTS=/tmp/pp-kc/tls.crt" >> "$GITHUB_ENV"
+          echo "SSL_CERT_FILE=/tmp/pp-kc/tls.crt" >> "$GITHUB_ENV"
+      - name: Start pinned official Keycloak with synthetic realm and HTTPS
+        run: |
+          docker run --detach --name productpulse-keycloak --network host             --memory=1700m             -e KC_BOOTSTRAP_ADMIN_USERNAME=ci-admin             -e KC_BOOTSTRAP_ADMIN_PASSWORD=ci-not-real-admin-2026             -v "$PWD/tests/e2e/keycloak-realm.json:/opt/keycloak/data/import/realm.json:ro"             -v "/tmp/pp-kc:/opt/keycloak/conf/tls:ro"             quay.io/keycloak/keycloak:26.8.1             start-dev --import-realm --hostname=https://localhost:8443             --https-port=8443             --https-certificate-file=/opt/keycloak/conf/tls/tls.crt             --https-certificate-key-file=/opt/keycloak/conf/tls/tls.key
+          for i in $(seq 1 90); do
+            if curl --silent --fail --cacert /tmp/pp-kc/tls.crt               https://localhost:8443/realms/productpulse-e2e/.well-known/openid-configuration > /tmp/pp-kc/discovery.json; then
+                echo 'PASS Keycloak realm HTTPS discovery'; break
+            fi
+            if [ "$i" -eq 90 ]; then echo 'FAIL Keycloak startup'; docker logs --tail=65 productpulse-keycloak; exit 1; fi
+            sleep 2
+          done
+      - name: Install Python, apply PostgreSQL migrations, run FastAPI
+        run: |
+          python -m pip install -e '.[dev,storage,api,review]'
+          alembic upgrade head
+          python -m uvicorn productpulse.api.app:app_from_env --factory             --host 127.0.0.1 --port 8000 >/tmp/pp-review-fastapi.log 2>&1 &
+          python - <<'PY'
+          import urllib.request,time
+          for i in range(65):
+              try:
+                  if urllib.request.urlopen('http://127.0.0.1:8000/health/live',timeout=3).status==200:
+                      print("PASS FastAPI");break
+              except OSError:time.sleep(0.3)
+          else:raise SystemExit("FastAPI did not start")
+          PY
+      - name: Seed synthetic tickets via real FastAPI
+        run: |
+          python - <<'PY'
+          import json,urllib.request,os
+          for id_,body in [
+              ("RU-A","Сбой ERP: авторизация после версии 2.1 возвращает HTTP 403"),
+              ("RU-B","После обновления ERP 2.1 пользователи видят HTTP 403 при входе"),
+          ]:
+              data={"source_system":"synthetic","source_ticket_id":id_,
+                    "provenance_id":"ci-only-fixture","product_id":"erp","component_id":"auth",
+                    "reported_version":"2.1","body_redacted":body,"error_codes":["HTTP 403"]}
+              req=urllib.request.Request("http://127.0.0.1:8000/internal/v1/tickets",
+                  data=json.dumps(data).encode(),method="POST",
+                  headers={"Content-Type":"application/json",
+                           "X-Internal-Token":os.environ["PRODUCTPULSE_INTERNAL_TOKEN"]})
+              with urllib.request.urlopen(req,timeout=10) as r:
+                  assert r.status==201,r.status
+          print("PASS seeded two synthetic Russian tickets in migrated PostgreSQL")
+          PY
+      - name: npm ci, unit tests and Next.js production build
+        working-directory: apps/web
+        run: |
+          npm ci --no-audit --no-fund
+          npm test
+          npm run typecheck
+          npm run build
+      - name: Run Next.js application
+        working-directory: apps/web
+        run: |
+          npm run start >/tmp/pp-review-next.log 2>&1 &
+          python - <<'PY'
+          import urllib.request,time
+          for i in range(90):
+              try:
+                  if urllib.request.urlopen('http://127.0.0.1:3000/healthz',timeout=2).status==200:break
+              except OSError:time.sleep(0.3)
+          else:raise SystemExit("Next.js did not start")
+          print("PASS Next.js")
+          PY
+      - name: Install browser and test three real Keycloak identities
+        working-directory: apps/web
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test tests/review-oidc.browser.spec.ts --reporter=list
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keycloak-review-playwright-failure
+          path: |
+            apps/web/test-results/
+            apps/web/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Sanitized diagnostics on failure
+        if: failure()
+        run: |
+          grep -E 'Traceback|ERROR|Exception|Error' /tmp/pp-review-fastapi.log 2>/dev/null | tail -30 || true
+          grep -E 'Error|Exception|Failed' /tmp/pp-review-next.log 2>/dev/null | tail -30 || true
+          docker logs --tail=40 productpulse-keycloak 2>&1 | grep -E 'WARN|ERROR|Failed|started' || true
+      - name: Destroy test IdP and ephemeral state
+        if: always()
+        run: docker rm -f productpulse-keycloak >/dev/null 2>&1 || true
