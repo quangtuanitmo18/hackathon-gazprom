@@ -54,3 +54,15 @@
 - Official PDF p. 6: seven Webneft customer narratives used in T01–T07.
 - Source evidence audit: `docs/research/deepseek-webneft-evidence-audit.md`.
 - No tests in this file have been executed against real model, website, ticket DB or product team.
+
+
+## Additional multi-product acceptance tests (T21–T24)
+
+| ID | Source / stimulus | Expected behavior | Wrong behavior |
+|---|---|---|---|
+| T21 | **Synthetic internal product** `demo-employee-portal`, backend-approved taxonomy allows `approval_workflow` (not Webneft's `electronic_queue_booking`) | Classifier uses this product's versioned taxonomy and scope, does not map to fuel logistics | Classifying all product tickets as Webneft's booking/contract journeys |
+| T22 | Source mapping contains `product_id=unknown` or product registry unavailable | `business_journey=unknown`; `needs_human_review=true`, no invented product team and no auto-digest | Guess team/product from prose, apply Webneft taxonomy globally |
+| T23 | Query retrieves similar symptom descriptions from distinct product IDs, one Webneft and one synthetic HR portal | Default retrieval/count aggregation stays within authenticated `scope_id+product_id`; cross-product join blocked without separate approved normalized view | Counting 2 tickets as the same product's recurring issue |
+| T24 | Product ownership changes between taxonomy/policy revisions | Backend resolves current authorized team and routing version; stale mapping means human triage, no cross-team publication | Reusing model's old owner label or leaking another product's evidence |
+
+The `demo-employee-portal` product is an **entirely synthetic test fixture**, not a claim about an actual Gazprom Neft internal system. These scenarios are **designed**, not executed against a company backend or Qwen.
