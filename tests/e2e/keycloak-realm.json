@@ -1,0 +1,134 @@
+{
+  "realm": "productpulse-e2e",
+  "enabled": true,
+  "displayName": "ProductPulse Synthetic Reviewer CI",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "accessTokenLifespan": 600,
+  "ssoSessionIdleTimeout": 1800,
+  "roles": {
+    "realm": [
+      {
+        "name": "productpulse_reviewer"
+      },
+      {
+        "name": "productpulse_review_lead"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "productpulse-web",
+      "name": "ProductPulse OIDC Review E2E",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "ci-keycloak-test-only-unique-client-secret-1234567",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:3000/api/auth/callback/keycloak"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ],
+      "protocolMappers": [
+        {
+          "name": "productpulse-review-api-aud",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "productpulse-review-api",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "productpulse-review-tenant",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "tenant_scope",
+            "claim.value": "e2e-demo",
+            "jsonType.label": "String",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "productpulse-review-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "roles",
+            "multivalued": "true",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "reviewer-a",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "reviewer-a@example.com",
+      "firstName": "Reviewer",
+      "lastName": "A",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "ci-reviewer-A-2026-only",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "productpulse_reviewer"
+      ]
+    },
+    {
+      "username": "reviewer-b",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "reviewer-b@example.com",
+      "firstName": "Reviewer",
+      "lastName": "B",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "ci-reviewer-B-2026-only",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "productpulse_reviewer"
+      ]
+    },
+    {
+      "username": "review-lead",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "review-lead@example.com",
+      "firstName": "Review",
+      "lastName": "Lead",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "ci-review-lead-2026-only",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "productpulse_reviewer",
+        "productpulse_review_lead"
+      ]
+    }
+  ]
+}
