@@ -1,0 +1,67 @@
+name: Verify upstream helpdesk datasets
+
+on:
+  push:
+    branches:
+      - data/verify-upstream-datasets
+    paths:
+      - .github/workflows/verify-upstream-datasets.yml
+      - scripts/datasets/verify_sources.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  download-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout validation branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check Python syntax
+        run: python -m py_compile scripts/datasets/verify_sources.py
+      - name: Download originals and verify schema and checksums
+        id: inspect
+        continue-on-error: true
+        run: python scripts/datasets/verify_sources.py
+      - name: Upload temporary source files to GitHub Actions artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: licensed-upstream-datasets-cc-by-4
+          path: data/raw/
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 6
+      - name: Upload machine-readable audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-schema-and-checksum-audit
+          path: docs/data/source-audit.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish aggregate audit report to this branch
+        if: always()
+        run: |
+          if [ -f docs/data/source-audit.json ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/data/source-audit.json
+            if ! git diff --cached --quiet; then
+              git commit -m "docs(data): record verified upstream schema audit [skip ci]"
+              git push
+            fi
+          fi
+      - name: Fail if download/verification incomplete
+        if: steps.inspect.outcome != 'success'
+        run: |
+          echo "::error::One or more upstream datasets could not be downloaded/verified; inspect source-audit.json"
+          exit 1
