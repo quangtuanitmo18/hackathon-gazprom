@@ -134,6 +134,28 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
           npx playwright test tests/review-oidc.browser.spec.ts --reporter=list
+      - name: Verify persisted review audit and absence of automatic Problem merge
+        run: |
+          python - <<'PY'
+          import json,os,urllib.request
+          base="http://127.0.0.1:8000/internal/v1"
+          def read(path):
+              with urllib.request.urlopen(urllib.request.Request(
+                  base+path,headers={"X-Internal-Token":os.environ["PRODUCTPULSE_INTERNAL_TOKEN"]}
+              ),timeout=10) as response:
+                  assert response.status==200
+                  return json.load(response)
+          problems=read("/problems")
+          audit=read("/audit")
+          kinds=[row["kind"] for row in audit]
+          assert len(problems)==2 and all(len(p["ticket_keys"])==1 for p in problems),problems
+          assert kinds.count("ticket_registered")==2,kinds
+          assert kinds.count("pair_review_submitted")==2,kinds
+          assert kinds.count("pair_review_lead_approved")==1,kinds
+          assert kinds.count("pair_approved")==1,kinds
+          assert "problems_merged" not in kinds,kinds
+          print("PASS two independent votes, third lead approval, two separate persisted Problems")
+          PY
       - name: Upload Playwright traces on failure
         if: failure()
         uses: actions/upload-artifact@v4
