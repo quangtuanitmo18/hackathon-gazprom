@@ -95,7 +95,8 @@ class TrendOut(BaseModel):
     scope_id: str
     revision: int
     status: Literal[
-        "volume_increase", "new_activity", "monitor", "insufficient_timestamps"
+        "volume_increase", "new_activity", "monitor",
+        "insufficient_timestamps", "unknown_coverage"
     ]
     as_of: datetime
     window_hours: int
