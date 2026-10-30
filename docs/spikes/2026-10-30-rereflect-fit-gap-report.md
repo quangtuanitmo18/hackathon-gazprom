@@ -1,6 +1,6 @@
 # Fit–Gap: Rereflect for ProductPulse AI
 
-**Date:** 2026-10-30. **Status:** PARTIAL — pinned source inspected, runtime smoke scheduled; do not present API runtime as passed without Actions evidence.
+**Date:** 2026-10-30. **Status:** PARTIAL — pinned source inspected; Docker backend startup & health verified; authenticated API checks being rerun with corrected synthetic email fixture.
 
 **Upstream pinned:** https://github.com/haqaliz/rereflect/tree/987dd9f0611c693524ec0cfba880517fa4d5ec57 (2026-10-21), MIT.
 **Local evidence workflow:** [GitHub Actions run 41046817009](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41046817009).
@@ -45,13 +45,26 @@
 
 ## Runtime verification status
 
-- Docker Compose manifest: **PENDING workflow result**.
-- Postgres/Redis/backend startup: **PENDING**.
-- Signup, feedback import, feedback readback, dashboard count, issue draft default-deny and cross-org read isolation: **PENDING**.
+- Docker Compose manifest: **PASS** on [first Actions run](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41046817009).
+- Postgres/Redis/backend startup: **PASS**; Alembic completed and GET /health returned HTTP 200 on the same run.
+- Signup in initial probe: **TEST FIXTURE ERROR** (HTTP 422). Investigated: python email-validator rejects special-use domain `example.invalid`; changed fixture to syntactically valid reserved `example.com`. This does **not** demonstrate an upstream defect.
+- Signup, feedback roundtrip, dashboard count, issue draft default-deny and cross-org read isolation: **PENDING corrected-run evidence**, [rerun](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41047762951).
 - Celery worker execution: **NOT IN SCOPE** of initial backend HTTP smoke.
 - Next.js build and interactive UI: **NOT IN SCOPE** of initial backend HTTP smoke.
 - Real Jira tracker write: **NOT TESTED AND WILL NOT BE ATTEMPTED** without explicit safe test instance credentials.
 - Actual Russian incident ML quality: **NOT EVALUATED**.
+
+## Tiny direct default-language behavior check
+
+[Actions run 41047578460](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41047578460) executed the pinned upstream `PainPointCategorizer` directly on 3 English/Russian synthetic pairs. It completed successfully:
+
+| Pair | English output | Russian output |
+|---|---|---|
+| Account login issue | functionality_broken | functionality_broken |
+| App slow/freeze | system_crash | functionality_broken |
+| Lost data | functionality_broken | functionality_broken |
+
+This **is not an accuracy benchmark**. The rule sets are English-keyword-heavy, and the 6-sentence probe shows important category collapse on one RU/EN pair. Actual Russian technical incident labels still require ProductPulse and domain annotation.
 
 ## Decision gate
 
