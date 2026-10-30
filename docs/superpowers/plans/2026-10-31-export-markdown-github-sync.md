@@ -17,7 +17,7 @@
 ## Step 3 — Verify and review
 - [x] Run GitHub Actions on exact new commit SHA; inspect job conclusion/logs, not just a previously successful run.
 - [x] Record source lengths, SHA/hash-based provenance, compliance with official 7-page PDF and remaining editorial/binary export limitations.
-- [ ] Add COMMENT-only self-review to PR #24; keep it Draft and do not merge or deploy.
+- [x] Add COMMENT-only self-review to PR #24; keep it Draft and do not merge or deploy.
 
 **Critical distinction:** source Markdown exactly matching the original exported Markdown does not mean GitHub CI has rendered the DOCX/PPTX. Actual document output was previously created and visually inspected separately; future edits must regenerate binary exports, not merely modify Markdown.
 
@@ -26,4 +26,4 @@
 - Both files matched the originals **byte-for-byte** based on re-fetched GitHub blob hashes and full text equality. Main 13,037 Unicode characters, item-5 9,466.
 - Source-level CI **SUCCESS**: [Actions 41137544563](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41137544563) on validator SHA `7954bc82745cd768c5e3271a1bd696faf2dd2880`.
 - [Critical self-review and source hashes](../../reviews/2026-10-31-export-markdown-github-sync-review.md).
-- COMMENT-only PR self-review is the final metadata step; no independent approval implied.
+- PR COMMENT-only author self-review posted (review ID `5719309313`). No independent approval implied.
