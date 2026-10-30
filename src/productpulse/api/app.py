@@ -137,6 +137,55 @@ class TrendOut(BaseModel):
     eligible_for_alert: bool
 
 
+class InsightProposalOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    proposal_id: str
+    problem_id: str
+    scope_id: str
+    revision: int
+    evidence_ticket_keys: tuple[str, ...]
+    evidence_digest: str
+    action_type: Literal["investigate_regression", "improve_diagnostics", "review_documentation"]
+    title: str
+    recommended_action: str
+    root_cause_status: Literal["unknown"]
+    owner_team_id: None
+    requires_human_review: Literal[True]
+    approval_status: Literal["pending", "approved"]
+    mock_issue_id: str | None
+
+
+class InsightActionInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_revision: int = Field(ge=2)
+    evidence_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    reason: str = Field(min_length=3, max_length=2000)
+    operation_key: str = Field(min_length=1, max_length=160)
+
+
+class InsightApprovalOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    proposal_id: str
+    problem_id: str
+    scope_id: str
+    revision: int
+    evidence_digest: str
+    approved_by: str
+    reason: str
+
+
+class MockIssueOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    mock_issue_id: str
+    proposal_id: str
+    problem_id: str
+    scope_id: str
+    revision: int
+    evidence_digest: str
+    created_by: str
+    reason: str
+
+
 class ReviewInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     ticket_key_a: str = Field(min_length=1, max_length=512)
@@ -385,6 +434,64 @@ def create_app(
                 detail="Verified trend evidence unavailable or capacity exceeded",
             ) from exc
         return [asdict(row) for row in rows]
+
+    @app.get(
+        "/internal/v1/insight-proposals",
+        response_model=list[InsightProposalOut],
+        dependencies=[Depends(require_internal)],
+    )
+    def insight_proposals(principal: ReviewerPrincipal = Depends(need_reviewer)):
+        """Only active explicitly grouped Problems; read-only and tenant-scoped."""
+        try:
+            return [
+                asdict(row)
+                for row in store.read(scope_id,lambda r:r.insight_proposals(scope_id))
+            ]
+        except ValueError as exc:
+            raise HTTPException(status_code=503,detail="Verified insight evidence unavailable") from exc
+
+    @app.post(
+        "/internal/v1/insight-proposals/{problem_id}/approve",
+        response_model=InsightApprovalOut,
+        status_code=201,
+        dependencies=[Depends(require_internal)],
+    )
+    def approve_insight_proposal(
+        problem_id: str, payload: InsightActionInput,
+        principal: ReviewerPrincipal = Depends(need_lead),
+    ):
+        try:
+            outcome=store.transact(scope_id,lambda r:r.approve_insight(
+                problem_id,expected_revision=payload.expected_revision,
+                evidence_digest=payload.evidence_digest,
+                actor=principal.reviewer_id,
+                reason=payload.reason,operation_key=payload.operation_key,
+            ))
+            return asdict(outcome)
+        except ValueError as exc:
+            raise HTTPException(status_code=409,detail="Stale or unverified insight proposal") from exc
+
+    @app.post(
+        "/internal/v1/insight-proposals/{problem_id}/mock-publish",
+        response_model=MockIssueOut,
+        status_code=201,
+        dependencies=[Depends(require_internal)],
+    )
+    def mock_publish_insight(
+        problem_id: str, payload: InsightActionInput,
+        principal: ReviewerPrincipal = Depends(need_lead),
+    ):
+        # Internal transactional MOCK ONLY. No Jira, HTTP, webhook or queue.
+        try:
+            outcome=store.transact(scope_id,lambda r:r.publish_mock_insight(
+                problem_id,expected_revision=payload.expected_revision,
+                evidence_digest=payload.evidence_digest,
+                actor=principal.reviewer_id,
+                reason=payload.reason,operation_key=payload.operation_key,
+            ))
+            return asdict(outcome)
+        except ValueError as exc:
+            raise HTTPException(status_code=409,detail="Human approval or verified revision required") from exc
 
     @app.get(
         "/internal/v1/reviews",
