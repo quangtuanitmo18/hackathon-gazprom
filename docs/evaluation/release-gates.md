@@ -77,3 +77,8 @@ Compute p50/p90 on UTC timestamps with `sent_at >= qualified_at`. Report `eligib
 - [ ] Financial stakeholder confirms whether saved time is actually redeployed, not merely a time-equivalent.
 
 **Status:** all signoffs above are explicitly outstanding. A passing Markdown validator or synthetic tests alone can never move a stage to G4/G5.
+
+
+## Multi-product rollout gate
+
+Before claiming this solution works for **dozens of digital products**, verify each product's authenticated source mapping, taxonomy version, access scope, owning team, support workflow and retention. Test at least **two real authorized products** or explicitly limit pilot claims to the one actually tested. Report per-product actionable precision, routing coverage, TPI p90, feedback response and missing-data rates; define weighted/corporate aggregate only after disclosing product volume mix. Reject unknown product IDs and forbidden cross-product evidence retrieval. **Webneft's seven examples alone cannot validate company-wide quality.**
