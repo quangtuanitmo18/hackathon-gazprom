@@ -38,8 +38,15 @@ def rank_review_candidates(
             " ".join(t.error_codes),
         ))) for _, t, _ in sorted_rows
     ]
-    tokens = [set(tokenize(text)) - {"email","phone","url","secret","redacted"}
-              for text in texts]
+    # Only incident narrative overlap can produce a candidate: common
+    # product/component/version metadata support ranking, not a decision.
+    generic = {"email", "phone", "url", "secret", "redacted",
+               "ошибка", "сбой", "после", "при", "для", "или",
+               "http", "erp", "the", "and", "error", "service"}
+    tokens = [
+        set(tokenize(" ".join(filter(None,(t.title or "",t.body_redacted or ""))))) - generic
+        for _, t, _ in sorted_rows
+    ]
     # No account identifiers, human annotations, review labels or gold edges are
     # used as ranking features. All source text must already be PII scrubbed.
     bm25 = BM25Index(keys, texts)
