@@ -62,6 +62,49 @@ def verify() -> None:
                    "| 5 |", "| 6 |", "| 7 |"):
         assert marker in requirements, f"Missing PDF table marker: {marker}"
     assert "15 000" in requirements
+
+    # Design-source checks only, NOT a Mermaid syntax/render validation
+    # nor a claim that Qwen has been called.
+    tools_doc = read("docs/agent/tool-contracts.md")
+    prompt_doc = read("docs/agent/system-prompt.ru.md")
+    contract_doc = read("docs/agent/output-contracts.md")
+    test_doc = read("docs/evaluation/prompt-adversarial-cases.md")
+    gallery = read("docs/diagrams/README.md")
+    diagram_names = (
+        "c4-containers.mmd",
+        "data-flow-trust-boundaries.mmd",
+        "agent-workflow.mmd",
+        "feedback-sequence.mmd",
+    )
+    assert gallery.count("```mermaid") == len(diagram_names)
+    for name in diagram_names:
+        source = read("docs/diagrams/" + name)
+        assert len(source) > 500, f"Diagram source too small: {name}"
+        assert name in gallery, f"Missing diagram gallery link: {name}"
+        assert source.strip() in gallery, f"Gallery out of date: {name}"
+    df_source = read("docs/diagrams/data-flow-trust-boundaries.mmd")
+    assert 'SAN -.->|"не передавать"| EXT' not in df_source, (
+        "Forbidden egress must not be depicted as real data transfer"
+    )
+    assert "Только observed count" in read("docs/diagrams/agent-workflow.mmd")
+    for tool_name in (
+        "get_ticket_context", "find_related_requests",
+        "aggregate_recurrence", "resolve_product_team",
+        "create_insight_draft", "send_internal_digest",
+        "record_product_feedback",
+    ):
+        assert tool_name in tools_doc and tool_name in prompt_doc + contract_doc + tools_doc
+    test_cases = re.findall(r"(?m)^\\| T\\d{2} \\|", test_doc)
+    assert len(test_cases) >= 20, f"Expected >=20 adversarial scenarios, got {len(test_cases)}"
+    examples = 0
+    for document in (prompt_doc, contract_doc):
+        for source_json in re.findall(r"```json\\s*([\\s\\S]*?)```", document):
+            json.loads(source_json)
+            examples += 1
+    assert examples >= 7, "Expected at least 7 parseable design JSON examples"
+    assert "no external" in contract_doc.lower() or "внеш" in contract_doc
+    print(f"PASS: {len(diagram_names)} Mermaid sources synchronized with gallery, "
+          f"{len(test_cases)} scenarios, {examples} syntactically valid JSON examples")
     print("PASS: official case contract, 1–4 + 6, separate 5,",
           f"main={len(main)} chars, seven unadjudicated examples, ten slides")
 
