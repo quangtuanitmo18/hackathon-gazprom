@@ -1,0 +1,32 @@
+%% Sequence: a candidate insight is NOT a confirmed technical incident.
+sequenceDiagram
+  autonumber
+  participant S as Ticket System
+  participant I as Ingestor
+  participant M as Internal Qwen ASR/VL/Text
+  participant A as Trusted Aggregator
+  participant P as Policy & Routing
+  participant O as Internal Outbox
+  participant T as Product Team
+  participant H as Human Reviewer
+  S-->>I: read-only ticket/call refs
+  I->>I: capture source_created_at / ingested_at
+  opt permitted audio / image
+    I->>M: internal-only media processing (restricted PII boundary)
+  end
+  I->>M: minimized text / approved signals
+  M-->>A: proposed intent, topic, symptom; not a diagnosis
+  I->>A: authoritative source IDs + timestamps
+  A->>A: distinct count, time window, coverage
+  A-->>P: evidence-linked unverified candidate
+  alt urgent, sensitive, incomplete or no routing
+    P->>H: route to existing human process
+    H-->>P: decision / need more evidence
+  else policy allows advisory product digest
+    P->>O: create digest with stable idempotency key
+    O->>T: approved internal channel (no external API)
+    T-->>O: ack + accepted / rejected / needs_info
+    O-->>A: feedback for evaluation and KPIs
+  end
+  Note over A,T: Same business topic ≠ same technical incident
+  Note over S,T: No actual company API, time-to-insight or LLM quality is claimed
