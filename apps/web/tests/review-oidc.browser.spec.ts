@@ -37,7 +37,7 @@ test("actual Keycloak: reviewer A + reviewer B + independent lead can approve bu
   });
   expect(csrf.status()).toBe(403);
   await one.page.getByRole("button",{name:"Отправить независимую оценку"}).click();
-  await expect(one.page.getByRole("alert")).toContainText("HTTP 409");
+  await expect(one.page.locator(".failure-panel[role=alert]")).toContainText("HTTP 409");
   const session=await one.page.evaluate(async()=>await (await fetch("/api/auth/session")).json());
   expect(JSON.stringify(session)).not.toContain("reviewerAccessToken");
   expect(JSON.stringify(session)).not.toContain("access_token");
@@ -56,7 +56,7 @@ test("actual Keycloak: reviewer A + reviewer B + independent lead can approve bu
   await selectPair(notLead.page);
   await notLead.page.getByRole("textbox",{name:"Причина подтверждения"}).fill("Reviewer cannot impersonate lead");
   await notLead.page.getByRole("button",{name:/Подтвердить связь/}).click();
-  await expect(notLead.page.getByRole("alert")).toContainText("HTTP 401");
+  await expect(notLead.page.locator(".failure-panel[role=alert]")).toContainText("HTTP 401");
   await notLead.context.close();
 
   const lead=await signInAs(browser,"review-lead","ci-review-lead-2026-only");
