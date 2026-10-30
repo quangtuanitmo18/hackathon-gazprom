@@ -1,0 +1,48 @@
+name: Audit GitBugs duplicate relations
+
+on:
+  push:
+    branches: [feat/gitbugs-duplicate-audit]
+    paths:
+      - scripts/datasets/audit_gitbugs.py
+      - src/productpulse/data/gitbugs.py
+      - .github/workflows/audit-gitbugs.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  audit-real-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install project
+        run: python -m pip install -e ".[dev]"
+      - name: Verify Python parser and all project tests
+        run: python -m pytest -q
+      - name: Download pinned original Hadoop reports and duplicate mapping
+        run: python scripts/datasets/audit_gitbugs.py
+      - name: Upload only aggregate source audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitbugs-hadoop-source-audit
+          path: docs/data/gitbugs-hadoop-audit.json
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Publish audit and small numeric-only duplicate links
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data/gitbugs-hadoop-audit.json datasets/public/gitbugs-hadoop/duplicate-links.csv
+          if ! git diff --cached --quiet; then
+            git commit -m "docs(data): record audited real GitBugs source [skip ci]"
+            git push
+          fi
