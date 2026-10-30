@@ -12,6 +12,11 @@ async function login(browser:Browser,username:string,password:string){
   await page.locator("#username").fill(username);
   await page.locator("#password").fill(password);
   await page.locator("#kc-login").click();
+  // Existing Keycloak login intentionally redirects to /review. Navigate
+  // through the real sidebar to /insights once the signed session is active.
+  await expect(page.getByRole("heading",{name:"Независимая проверка инцидентов"}))
+    .toBeVisible({timeout:30000});
+  await page.getByRole("link",{name:"Предложения"}).click();
   await expect(page.getByRole("heading",{name:"Предложения продуктовой команде"}))
     .toBeVisible({timeout:30000});
   return {page,context};
