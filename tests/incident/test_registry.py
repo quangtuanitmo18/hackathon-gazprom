@@ -241,3 +241,112 @@ def test_merge_self_or_blank_reason_disallowed():
         do_merge(r,pa,pa)
     with pytest.raises(ValueError,match="reason"):
         do_merge(r,pa,pb,reason=" ")
+
+
+def three_member_problem():
+    r,(a,b,c),(pa,pb,pc)=registered("1","2","3")
+    for x,y in ((a,b),(a,c),(b,c)):
+        approve(r,x,y)
+    ab=do_merge(r,pa,pb)
+    abc=do_merge(r,ab,pc,key="merge-2",rv_p=ab.revision)
+    return r,(a,b,c),abc
+
+
+def split_two(r,abc,a,b,c,*,key="split-1",rv=None,reason="Reviewer corrects mixed incident grouping"):
+    return r.split(
+        abc.problem_id,
+        partitions=((ticket_key(a),ticket_key(b)),(ticket_key(c),)),
+        actor="reviewer-lead", reason=reason,
+        operation_key=key, expected_revision=abc.revision if rv is None else rv,
+    )
+
+
+def test_explicit_split_changes_ownership_and_preserves_parent_lineage():
+    r,(a,b,c),abc=three_member_problem()
+    first,second=split_two(r,abc,a,b,c)
+    assert first.problem_id == abc.problem_id
+    assert first.revision == abc.revision+1
+    assert set(first.ticket_keys)=={ticket_key(a),ticket_key(b)}
+    assert second.parent_id==abc.problem_id
+    assert second.status=="active"
+    assert second.ticket_keys==(ticket_key(c),)
+    assert r.problem_for_ticket(c)==second
+    assert r.problem_for_ticket(a)==first
+    assert r.audit_events()[-1].kind=="problem_split"
+
+
+def test_split_revokes_only_approvals_crossing_partitions_preserving_audit():
+    r,(a,b,c),abc=three_member_problem()
+    original_approval_count=len(r.active_approvals())
+    assert original_approval_count==3
+    before=len([x for x in r.audit_events() if x.kind=="pair_approved"])
+    first,second=split_two(r,abc,a,b,c)
+    assert {ap.pair_id for ap in r.active_approvals()}=={pair_identity(a,b)}
+    assert len(r.audit_events()[-1].revoked_pair_ids)==2
+    assert len([x for x in r.audit_events() if x.kind=="pair_approved"])==before
+    with pytest.raises(ValueError,match="approved cross-pair"):
+        do_merge(r,first,second,key="merge-after-split",rv_p=first.revision,rv_q=second.revision)
+
+
+def test_split_can_reapprove_links_with_fresh_operation_keys_after_correction():
+    r,(a,b,c),abc=three_member_problem()
+    first,second=split_two(r,abc,a,b,c)
+    approve(r,a,c,key="re-review-a-c")
+    approve(r,b,c,key="re-review-b-c")
+    merged=do_merge(r,first,second,key="merge-corrected",rv_p=first.revision,rv_q=second.revision)
+    assert len(merged.ticket_keys)==3
+
+
+@pytest.mark.parametrize("partitions",[
+    (),
+    (("dummy",),),
+    (("dummy",),("another",)),
+    (("bad","bad"),("anything",)),
+])
+def test_invalid_or_missing_split_partitions_fail_atomically(partitions):
+    r,(a,b,c),abc=three_member_problem()
+    before=r.audit_events()
+    with pytest.raises(ValueError,match="partitions"):
+        r.split(abc.problem_id,partitions=partitions,actor="lead",reason="correction",
+                operation_key="split-bad",expected_revision=abc.revision)
+    assert r.audit_events()==before
+    assert r.get_problem(abc.problem_id)==abc
+
+
+def test_overlap_and_missing_member_partitions_rejected_without_mutation():
+    r,(a,b,c),abc=three_member_problem()
+    before=r.audit_events()
+    for parts in [
+        ((ticket_key(a),ticket_key(b)),(ticket_key(b),ticket_key(c))),
+        ((ticket_key(a),),(ticket_key(c),)),
+        ((ticket_key(a),ticket_key(b)),()),
+    ]:
+        with pytest.raises(ValueError,match="partitions"):
+            r.split(abc.problem_id,partitions=parts,actor="lead",reason="correction",
+                    operation_key="split-bad",expected_revision=abc.revision)
+        assert r.audit_events()==before
+
+
+def test_stale_split_revision_is_rejected():
+    r,(a,b,c),abc=three_member_problem()
+    with pytest.raises(ValueError,match="stale revision"):
+        split_two(r,abc,a,b,c,rv=1)
+    assert r.get_problem(abc.problem_id)==abc
+
+
+def test_split_retry_same_key_returns_same_snapshots_no_new_audit():
+    r,(a,b,c),abc=three_member_problem()
+    first=split_two(r,abc,a,b,c)
+    n=len(r.audit_events())
+    assert split_two(r,abc,a,b,c)==first
+    assert len(r.audit_events())==n
+    with pytest.raises(ValueError,match="idempotency"):
+        split_two(r,abc,a,b,c,reason="modified correction note")
+
+
+def test_split_requires_reason_and_leaves_no_side_effect_when_rejected():
+    r,(a,b,c),abc=three_member_problem()
+    n=len(r.audit_events())
+    with pytest.raises(ValueError,match="reason"):
+        split_two(r,abc,a,b,c,reason=" ")
+    assert len(r.audit_events())==n
