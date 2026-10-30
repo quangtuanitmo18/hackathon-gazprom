@@ -79,8 +79,11 @@ def suggest_with_model(
         raw=model_call(prompt)
         if not isinstance(raw,str) or len(raw)>4096:
             return baseline
-        parsed=_AliasSuggestion.model_validate(
-            json.loads(raw,object_pairs_hook=_object_unique),
+        # Detect duplicate JSON fields before Pydantic JSON-mode parsing:
+        # model_validate() in strict Python mode would reject JSON arrays
+        # for tuple[str, ...], even when wire JSON is well-formed.
+        parsed=_AliasSuggestion.model_validate_json(
+            json.dumps(json.loads(raw,object_pairs_hook=_object_unique))
         )
         aliases=tuple(f"E{i}" for i in range(1,len(evidence.ticket_keys)+1))
         if (parsed.action_type not in _ALLOWED or
