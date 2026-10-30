@@ -139,6 +139,19 @@ class ProblemRegistry:
             if self._problems[pid].status == "active"
         )
 
+    def candidate_inputs(self, *, corpus_cap: int = 500) -> tuple[tuple[str, CanonicalTicketV1, str], ...]:
+        """All tickets of ONE already authenticated scope; never truncate silently.
+
+        Registry instances are instantiated per tenant by the persistent adapter.
+        Large tenants require a separate indexed retrieval service.
+        """
+        if len(self._tickets) > corpus_cap:
+            raise ValueError("candidate indexing capacity exceeded")
+        return tuple(
+            (key, self._tickets[key], self._owners[key])
+            for key in sorted(self._tickets)
+        )
+
     def list_review_tickets(self, *, limit: int = 50, offset: int = 0) -> tuple[tuple[str, CanonicalTicketV1], ...]:
         """Bounded read-only trusted reviewer input, not an incident verdict."""
         if not 1 <= limit <= 50 or offset < 0:
