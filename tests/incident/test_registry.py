@@ -288,13 +288,28 @@ def test_split_revokes_only_approvals_crossing_partitions_preserving_audit():
         do_merge(r,first,second,key="merge-after-split",rv_p=first.revision,rv_q=second.revision)
 
 
-def test_split_can_reapprove_links_with_fresh_operation_keys_after_correction():
+def test_split_requires_fresh_human_reviews_not_just_new_operation_keys():
     r,(a,b,c),abc=three_member_problem()
     first,second=split_two(r,abc,a,b,c)
-    approve(r,a,c,key="re-review-a-c")
-    approve(r,b,c,key="re-review-b-c")
+    with pytest.raises(ValueError,match="fresh post-split"):
+        approve(r,a,c,key="re-review-a-c")
+    with pytest.raises(ValueError,match="approved cross-pair"):
+        do_merge(r,first,second,key="merge-corrected",rv_p=first.revision,rv_q=second.revision)
+    # Both independent reviewers must supply a new post-split decision.
+    for x,y,key in ((a,c,"new-review-a-c"),(b,c,"new-review-b-c")):
+        old_one,old_two=reviews(x,y)
+        fresh=datetime.now(timezone.utc)
+        new_one=old_one.model_copy(update={"reviewed_at":fresh})
+        new_two=old_two.model_copy(update={"reviewed_at":fresh})
+        r.approve_pair(x,y,new_one,new_two,actor="lead",operation_key=key)
     merged=do_merge(r,first,second,key="merge-corrected",rv_p=first.revision,rv_q=second.revision)
     assert len(merged.ticket_keys)==3
+
+def test_replaying_revoked_approval_key_must_not_claim_still_active():
+    r,(a,b,c),abc=three_member_problem()
+    split_two(r,abc,a,b,c)
+    with pytest.raises(ValueError,match="revoked"):
+        approve(r,a,c,key=f"approval:{ticket_key(a)}:{ticket_key(c)}")
 
 
 @pytest.mark.parametrize("partitions",[
@@ -350,3 +365,12 @@ def test_split_requires_reason_and_leaves_no_side_effect_when_rejected():
     with pytest.raises(ValueError,match="reason"):
         split_two(r,abc,a,b,c,reason=" ")
     assert len(r.audit_events())==n
+
+
+def test_screening_candidate_alone_never_grants_merge():
+    from productpulse.incident.verify import screen_pair
+    r,(a,b),(pa,pb)=registered("1","2")
+    out=screen_pair(a,b,"auth_denied","auth_denied")
+    assert out.status=="candidate_for_human_review"
+    with pytest.raises(ValueError,match="approved"):
+        do_merge(r,pa,pb)
