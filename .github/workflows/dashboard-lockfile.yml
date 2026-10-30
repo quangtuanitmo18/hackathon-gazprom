@@ -2,8 +2,8 @@ name: Generate audited dashboard npm lockfile
 
 on:
   push:
-    branches: [feat/problem-dashboard]
-    paths: ['.github/workflows/dashboard-lockfile.yml']
+    branches: [feat/keycloak-review-console]
+    paths: ['.github/workflows/dashboard-lockfile.yml', 'apps/web/package.json']
   workflow_dispatch:
 
 permissions:
@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: feat/problem-dashboard
+          ref: feat/keycloak-review-console
           persist-credentials: true
       - uses: actions/setup-node@v4
         with:
@@ -32,5 +32,5 @@ jobs:
           git add apps/web/package-lock.json
           if ! git diff --cached --quiet; then
             git commit -m "build(dashboard): pin exact OSS dependency tree via npm lockfile [skip ci]"
-            git push origin HEAD:feat/problem-dashboard
+            git push origin HEAD:feat/keycloak-review-console
           fi
