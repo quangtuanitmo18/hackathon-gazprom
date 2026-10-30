@@ -34,7 +34,7 @@ test("fetch scoped evidence forwards both tokens privately to fixed upstream ori
     return new Response(JSON.stringify([]),{status:200,headers:{"Content-Type":"application/json"}});
   }) as typeof fetch;
   const results=await fetchReviewerData(cfg,jwt.reviewerAccessToken,transport);
-  assert.deepEqual(results,{tickets:[],reviews:[],candidates:[]});
+  assert.deepEqual(results,{tickets:[],reviews:[],candidates:[],activity:[]});
   assert.equal(record.auth,"Bearer "+jwt.reviewerAccessToken);
   assert.equal(record.service,cfg.token);
   assert.ok(record.url?.startsWith(cfg.baseUrl+"/internal/v1/"));
@@ -109,4 +109,97 @@ test("reviewer evidence fetches beyond first 50 so ranked pair remains selectabl
   assert.equal(data.tickets.length,51);
   assert.ok(data.tickets.some(t=>t.ticket_key==="synthetic51"));
   assert.ok(seen.some(url=>url.includes("offset=50")));
+});
+
+const earlyPair={
+  ticket_key_a:"synthetic1:a",ticket_key_b:"synthetic1:b",
+  created_at_a:"2026-10-30T14:00:00Z",created_at_b:"2026-10-30T14:10:00Z",
+  as_of:"2026-10-30T15:00:00Z",window_hours:24,
+  recent_pattern:"both_current",current_member_count:2,previous_member_count:0,
+  rank:1,signals:["lexical_overlap","same_product"],
+  evidence_type:"lexical_candidate",coverage_status:"unknown_coverage",
+  eligible_for_alert:false,
+};
+const evidence=(id:string)=>({
+  ticket_key:id,source_system:"synthetic",source_ticket_id:id,
+  product_id:null,component_id:null,reported_version:null,error_codes:[],
+  body_redacted:"Synthetic redacted test",
+});
+
+test("BFF fetches activity via allowlisted server-only URL, keeps both credentials secret",async()=>{
+  const requested:string[]=[];
+  const transport=(async(input:RequestInfo|URL,init?:RequestInit)=>{
+    const url=String(input);requested.push(url);
+    const h=new Headers(init?.headers);
+    assert.equal(h.get("Authorization"),"Bearer "+jwt.reviewerAccessToken);
+    assert.equal(h.get("X-Internal-Token"),cfg.token);
+    assert.equal(init?.cache,"no-store");
+    const body=url.includes("/unverified-activity")?[earlyPair]:
+      url.includes("/review-tickets")?[evidence(earlyPair.ticket_key_a),evidence(earlyPair.ticket_key_b)]:[];
+    return new Response(JSON.stringify(body),{status:200});
+  }) as typeof fetch;
+  const data=await fetchReviewerData(cfg,jwt.reviewerAccessToken,transport);
+  assert.equal(data.activity.length,1);
+  assert.equal(data.activity[0].recent_pattern,"both_current");
+  assert.equal(data.activity[0].eligible_for_alert,false);
+  assert.ok(requested.some(u=>u===cfg.baseUrl+"/internal/v1/unverified-activity"));
+  assert.ok(!JSON.stringify(data).includes(cfg.token));
+  assert.ok(!JSON.stringify(data).includes(jwt.reviewerAccessToken));
+});
+
+test("BFF refuses invented confidence, alert flags, incident IDs, timestamps and extra properties",async()=>{
+  for(const bad of [
+    {...earlyPair,confidence:0.91},
+    {...earlyPair,eligible_for_alert:true},
+    {...earlyPair,incident_id:"fabricated"},
+    {...earlyPair,created_at_a:"today"},
+    {...earlyPair,ticket_key_b:earlyPair.ticket_key_a},
+    {...earlyPair,recent_pattern:"confirmed"},
+  ]){
+    const transport=(async(input:RequestInfo|URL)=>{
+      const url=String(input);
+      const body=url.includes("/unverified-activity")?[bad]:
+        url.includes("/review-tickets")?[evidence(earlyPair.ticket_key_a),evidence(earlyPair.ticket_key_b)]:[];
+      return new Response(JSON.stringify(body),{status:200});
+    }) as typeof fetch;
+    await assert.rejects(
+      fetchReviewerData(cfg,jwt.reviewerAccessToken,transport),
+      /invalid upstream response/
+    );
+  }
+});
+
+test("BFF fails closed when early pair lacks either evidence record across pages",async()=>{
+  const transport=(async(input:RequestInfo|URL)=>{
+    const url=String(input);
+    const body=url.includes("/unverified-activity")?[earlyPair]:
+      url.includes("/review-tickets")?[evidence(earlyPair.ticket_key_a)]:[];
+    return new Response(JSON.stringify(body),{status:200});
+  }) as typeof fetch;
+  await assert.rejects(fetchReviewerData(cfg,jwt.reviewerAccessToken,transport),/evidence|invalid/i);
+});
+
+test("BFF resolves early activity ticket on page 2, after complete paginated evidence retrieval",async()=>{
+  const seen:string[]=[];
+  const transport=(async(input:RequestInfo|URL)=>{
+    const url=String(input);seen.push(url);
+    const body=url.includes("/unverified-activity")?[earlyPair]:
+      url.includes("/review-tickets")?
+        (url.includes("offset=50")?[evidence(earlyPair.ticket_key_b)]:
+          [...Array.from({length:49},(_,i)=>evidence("other-"+i)),evidence(earlyPair.ticket_key_a)]):[];
+    return new Response(JSON.stringify(body),{status:200});
+  }) as typeof fetch;
+  const data=await fetchReviewerData(cfg,jwt.reviewerAccessToken,transport);
+  assert.equal(data.tickets.length,51);
+  assert.equal(data.activity.length,1);
+  assert.ok(seen.some(url=>url.endsWith("/review-tickets?limit=50&offset=50")));
+});
+
+test("BFF never silently hides a failed early-activity service as empty result",async()=>{
+  const transport=(async(input:RequestInfo|URL)=>{
+    return String(input).includes("/unverified-activity")?
+      new Response("upstream failure",{status:503}):
+      new Response("[]",{status:200});
+  }) as typeof fetch;
+  await assert.rejects(fetchReviewerData(cfg,jwt.reviewerAccessToken,transport),/upstream/);
 });
