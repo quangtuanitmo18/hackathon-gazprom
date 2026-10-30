@@ -18,6 +18,8 @@ from sqlalchemy import create_engine
 from productpulse.data.canonical import CanonicalTicketV1
 from productpulse.api.reviewer_auth import ReviewerJWTVerifier, ReviewTokenError, ReviewerPrincipal
 from productpulse.incident.annotation import PairLabel
+from productpulse.incident.candidates import rank_review_candidates
+from productpulse.privacy.redaction import sanitize_ticket, UnsafeIdentity
 from productpulse.storage.repository import PersistentProblemRegistry
 
 
@@ -63,6 +65,21 @@ class ReviewTicketOut(BaseModel):
     reported_version: str | None = None
     error_codes: tuple[str, ...] = ()
     body_redacted: str | None = None
+
+
+class CandidateQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    limit: int = Field(default=20, ge=1, le=30)
+
+
+class CandidateOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ticket_key_a: str
+    ticket_key_b: str
+    rank: int
+    signals: tuple[Literal[
+        "lexical_overlap","same_product","same_component","shared_error_code",
+    ], ...]
 
 
 class ReviewInput(BaseModel):
@@ -134,8 +151,11 @@ def create_app(
     )
     def ingest(ticket: CanonicalTicketV1):
         try:
+            # Ingress guarantee: strip detected common PII/secrets BEFORE any
+            # persistent JSONB mutation. Identifiers cannot be mutated safely.
+            sanitized = sanitize_ticket(ticket)
             result = store.transact(
-                scope_id, lambda r: r.register_ticket(ticket, scope_id),
+                scope_id, lambda r: r.register_ticket(sanitized, scope_id),
             )
             return asdict(result)
         except ValueError as exc:
@@ -193,6 +213,32 @@ def create_app(
 
     def need_lead(authorization: str | None = Header(default=None)):
         return authenticated_reviewer(authorization, "productpulse_review_lead")
+
+    @app.get(
+        "/internal/v1/review-candidates",
+        response_model=list[CandidateOut],
+        dependencies=[Depends(require_internal)],
+    )
+    def review_candidates(
+        params: Annotated[CandidateQuery, Query()],
+        principal: ReviewerPrincipal = Depends(need_reviewer),
+    ):
+        def retrieve(reg):
+            rows = reg.candidate_inputs(corpus_cap=500)
+            approved = {tuple(ap.ticket_keys) for ap in reg.active_approvals()}
+            return rank_review_candidates(
+                rows, approved_pairs=approved, corpus_cap=500,
+                limit=params.limit,
+            )
+        try:
+            return list(store.read(scope_id, retrieve))
+        except ValueError as exc:
+            # Explicit capacity condition, never silently sample first N
+            # and claim corpus-wide recommendation completeness.
+            raise HTTPException(
+                status_code=503,
+                detail="Candidate index capacity exceeded; use larger indexed retrieval service",
+            ) from exc
 
     @app.get(
         "/internal/v1/review-tickets",
