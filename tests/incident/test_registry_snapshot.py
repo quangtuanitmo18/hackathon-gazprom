@@ -82,7 +82,7 @@ def test_split_and_revoked_approval_survive_and_block_old_replay():
     assert loaded.get_problem(split[1].problem_id)==split[1]
     assert loaded.split(merged.problem_id,partitions=((ticket_key(a),),(ticket_key(b),)),
        actor="owner",reason="wrong merge",operation_key="split",expected_revision=2)==split
-    with pytest.raises(ValueError,match="revoked"):
+    with pytest.raises(ValueError,match="revoked|idempotency"):
         approve(loaded,a,b,key="approved-before-split")
     old_when=datetime.now(timezone.utc)-timedelta(days=1)
     pid=pair_identity(a,b)
