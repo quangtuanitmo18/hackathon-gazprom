@@ -46,8 +46,8 @@ def main():
             if time.monotonic() >= deadline: raise RuntimeError("backend /health not ready")
             time.sleep(3)
         check("GET /health", code, 200)
-        a = {"email":"spike-org-a@example.invalid","password":"NotARealPassword-1234!","organization_name":"Spike Organization A"}
-        b = {"email":"spike-org-b@example.invalid","password":"NotARealPassword-5678!","organization_name":"Spike Organization B"}
+        a = {"email":"spike-org-a@example.com","password":"NotARealPassword-1234!","organization_name":"Spike Organization A"}
+        b = {"email":"spike-org-b@example.com","password":"NotARealPassword-5678!","organization_name":"Spike Organization B"}
         c1, org1 = request("POST", "/api/v1/auth/signup", a)
         check("POST auth/signup organization A",c1,201)
         token_a=org1.get("access_token")
