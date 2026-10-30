@@ -5,7 +5,7 @@ scope and actor via RBAC. No similarity-based auto merges or tracker writes.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -301,3 +301,116 @@ class ProblemRegistry:
         )
         self._operations[op] = (signature, records)
         return records
+
+
+    def to_state(self) -> dict:
+        """Versioned, JSON-only domain snapshot. Never use pickle or eval."""
+        def pack_operation(value: object) -> dict:
+            if isinstance(value, ProblemRecord):
+                return {"kind": "problem", "value": asdict(value)}
+            if isinstance(value, PairApproval):
+                return {"kind": "approval", "value": asdict(value)}
+            if isinstance(value, tuple) and all(isinstance(v, ProblemRecord) for v in value):
+                return {"kind": "problems", "value": [asdict(v) for v in value]}
+            raise TypeError("unsupported domain operation result")
+
+        return {
+            "version": 1,
+            "tickets": {key: value.model_dump(mode="json") for key, value in self._tickets.items()},
+            "scopes": dict(self._scopes),
+            "owners": dict(self._owners),
+            "problems": {key: asdict(value) for key, value in self._problems.items()},
+            "approved": {key: asdict(value) for key, value in self._approved.items()},
+            "revoked_at": {key: value.isoformat() for key, value in self._revoked_at.items()},
+            "events": [dict(asdict(event), at=event.at.isoformat()) for event in self._events],
+            "operations": {
+                key: {"signature": signature, "result": pack_operation(result)}
+                for key, (signature, result) in self._operations.items()
+            },
+            "sequence": self._sequence,
+        }
+
+    @classmethod
+    def from_state(cls, payload: dict) -> "ProblemRegistry":
+        """Fail closed on unsupported versions and malformed/cross-referenced state."""
+        if not isinstance(payload, dict) or payload.get("version") != 1:
+            raise ValueError("unsupported or missing registry snapshot version")
+        required = (
+            "tickets", "scopes", "owners", "problems", "approved",
+            "revoked_at", "events", "operations", "sequence",
+        )
+        if any(name not in payload for name in required):
+            raise ValueError("incomplete registry snapshot")
+        if not all(isinstance(payload[name], dict) for name in required[:-1] if name != "events"):
+            raise ValueError("invalid snapshot map types")
+        if not isinstance(payload["events"], list) or type(payload["sequence"]) is not int:
+            raise ValueError("invalid registry event list or sequence")
+        reg = cls()
+        def restore_problem(v):
+            return ProblemRecord(
+                problem_id=v["problem_id"], scope_id=v["scope_id"],
+                ticket_keys=tuple(v["ticket_keys"]),
+                revision=v["revision"], status=v["status"],
+                merged_into=v.get("merged_into"), parent_id=v.get("parent_id"),
+            )
+        def restore_approval(v):
+            return PairApproval(pair_id=v["pair_id"], ticket_keys=tuple(v["ticket_keys"]),
+                                reviewer_ids=tuple(v["reviewer_ids"]))
+        def nested_tuple(v):
+            return tuple(nested_tuple(x) for x in v) if isinstance(v, (list, tuple)) else v
+
+        reg._tickets = {key: CanonicalTicketV1.model_validate(v)
+                        for key, v in payload["tickets"].items()}
+        reg._scopes = dict(payload["scopes"])
+        reg._owners = dict(payload["owners"])
+        reg._problems = {key: restore_problem(v) for key, v in payload["problems"].items()}
+        reg._approved = {key: restore_approval(v) for key, v in payload["approved"].items()}
+        reg._revoked_at = {key: datetime.fromisoformat(value)
+                           for key, value in payload["revoked_at"].items()}
+        reg._events = [
+            AuditEvent(
+                kind=e["kind"], actor=e["actor"], operation_key=e["operation_key"],
+                at=datetime.fromisoformat(e["at"]), problem_ids=tuple(e["problem_ids"]),
+                ticket_keys=tuple(e["ticket_keys"]), reason=e["reason"],
+                revoked_pair_ids=tuple(e["revoked_pair_ids"]),
+            ) for e in payload["events"]
+        ]
+        for key, rec in payload["operations"].items():
+            data = rec["result"]
+            kind = data["kind"]
+            if kind == "problem":
+                result = restore_problem(data["value"])
+            elif kind == "approval":
+                result = restore_approval(data["value"])
+            elif kind == "problems":
+                result = tuple(restore_problem(p) for p in data["value"])
+            else:
+                raise ValueError(f"unknown operation result kind: {kind}")
+            reg._operations[key] = (nested_tuple(rec["signature"]), result)
+        reg._sequence = payload["sequence"]
+
+        # No snapshot may rebind a ticket to a different scope, retired
+        # problem, or mismatched source identity without detection.
+        keys = set(reg._tickets)
+        if any(ticket_key(ticket) != key for key, ticket in reg._tickets.items()):
+            raise ValueError("snapshot contains mismatched ticket identity")
+        if set(reg._scopes) != keys or set(reg._owners) != keys:
+            raise ValueError("snapshot missing ticket scope or owner")
+        for key, pid in reg._owners.items():
+            problem = reg._problems.get(pid)
+            if (problem is None or problem.status != "active"
+                    or key not in problem.ticket_keys
+                    or reg._scopes[key] != problem.scope_id):
+                raise ValueError("snapshot contains invalid active ticket ownership")
+        for pid, problem in reg._problems.items():
+            if pid != problem.problem_id or any(
+                reg._owners.get(key) != pid for key in problem.ticket_keys
+            ):
+                raise ValueError("snapshot contains invalid Problem membership")
+        if any(any(key not in keys for key in ap.ticket_keys)
+               for ap in reg._approved.values()):
+            raise ValueError("snapshot contains unknown ticket approval")
+        if any(value.tzinfo is None or value.utcoffset() is None
+               for value in reg._revoked_at.values()):
+            raise ValueError("snapshot contains naive revocation timestamp")
+        return reg
