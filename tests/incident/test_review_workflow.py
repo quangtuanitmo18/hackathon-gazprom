@@ -148,3 +148,14 @@ def test_split_requires_new_reviews_not_previous_reviews():
             actor="issuer:other-lead",reason="old evidence",operation_key="lead-2")
     assert r.review_statuses()[0].status=="awaiting_first_review"
     assert not r.active_approvals()
+
+
+def test_approved_pair_status_is_approved_and_persists_across_snapshot_restart():
+    r,(a,b)=registry("a","b")
+    submit(r,a,b,"issuer:user-a")
+    submit(r,a,b,"issuer:user-b",key="review-b")
+    r.approve_reviewed_pair(ticket_key(a),ticket_key(b),actor="issuer:lead",
+                            reason="confirmed",operation_key="lead")
+    assert r.review_statuses()[0].status=="approved"
+    reloaded=ProblemRegistry.from_state(json.loads(json.dumps(r.to_state())))
+    assert reloaded.review_statuses()[0].status=="approved"
