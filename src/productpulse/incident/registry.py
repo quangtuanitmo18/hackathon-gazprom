@@ -12,6 +12,7 @@ from typing import Literal
 from pydantic import ValidationError
 
 from productpulse.data.canonical import CanonicalTicketV1, ticket_key
+from productpulse.insights.trends import ProblemTimeline
 from productpulse.incident.annotation import (
     PairAnnotation, PairLabel, adjudicate_pair, pair_identity,
 )
@@ -150,6 +151,30 @@ class ProblemRegistry:
         return tuple(
             (key, self._tickets[key], self._owners[key])
             for key in sorted(self._tickets)
+        )
+
+    def trend_inputs(self, *, corpus_cap: int = 5000) -> tuple[ProblemTimeline, ...]:
+        """Read-only event times of EXPLICITLY grouped active Problems only.
+
+        Do not infer grouped incidence from approved pair links or shared words.
+        Snapshot stays within this registry's server-authenticated tenant scope.
+        """
+        if type(corpus_cap) is not int or corpus_cap < 1:
+            raise ValueError("invalid trend corpus capacity")
+        if len(self._tickets) > corpus_cap:
+            raise ValueError("trend corpus capacity exceeded")
+        return tuple(
+            ProblemTimeline(
+                problem_id=problem.problem_id,
+                scope_id=problem.scope_id,
+                revision=problem.revision,
+                ticket_times=tuple(
+                    (key, self._tickets[key].created_at)
+                    for key in problem.ticket_keys
+                ),
+            )
+            for problem in self.list_active()
+            if len(problem.ticket_keys) >= 2
         )
 
     def list_review_tickets(self, *, limit: int = 50, offset: int = 0) -> tuple[tuple[str, CanonicalTicketV1], ...]:
