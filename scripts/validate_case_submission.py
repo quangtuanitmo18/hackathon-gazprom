@@ -107,6 +107,44 @@ def verify() -> None:
     assert "no external" in contract_doc.lower() or "внеш" in contract_doc
     print(f"PASS: {len(diagram_names)} Mermaid sources synchronized with gallery, "
           f"{len(test_cases)} scenarios, {examples} syntactically valid JSON examples")
+    # Economic scenario regression check: arithmetic and textual cross-file consistency.
+    finance = read("docs/business/financial-assumptions.md")
+    release = read("docs/evaluation/release-gates.md")
+    annotation = read("docs/evaluation/annotation-guidelines.md")
+    case_model = json.loads(read("docs/business/scenario-inputs.json"))
+    common = case_model["constant_inputs"]
+    assert common["support_managers"] == 40
+    assert common["years"] == 3
+    assert common["months_per_year"] == 12
+    assert len(case_model["scenarios"]) == 3
+    rate = common["nominal_discount_rate"]
+    growth = common["nominal_hourly_value_growth"]
+    def thousands(value: int) -> str:
+        return f"{value:,}".replace(",", " ")
+    for scenario in case_model["scenarios"]:
+        annual = (common["support_managers"] * common["working_days_per_month"]
+                  * common["months_per_year"] * scenario["minutes_saved_per_manager_day"]
+                  / 60 * scenario["adoption_fraction"] * scenario["hour_value_rub"])
+        three_year = annual * common["years"]
+        pv = sum(annual * scenario["realizable_fraction"] * (1 + growth) ** (t - 1)
+                 / (1 + rate) ** t for t in range(1, common["years"] + 1))
+        assert round(annual) == scenario["expected_gross_annual_rub"], scenario["id"]
+        assert round(three_year) == scenario["expected_gross_three_year_rub"], scenario["id"]
+        assert round(pv) == scenario["expected_pv_realizable_rub"], scenario["id"]
+        for amount in ("expected_gross_annual_rub", "expected_gross_three_year_rub",
+                       "expected_pv_realizable_rub"):
+            shown = thousands(scenario[amount])
+            assert shown in finance, f"finance missing {scenario['id']}: {shown}"
+            assert shown in main, f"main missing {scenario['id']}: {shown}"
+    assert "unknown_coverage" in metrics
+    assert "reviewed/sent" in metrics
+    assert "recall" in annotation.lower()
+    assert "precision" in release.lower()
+    assert "G0" in release and "G5" in release
+    assert "правил" in finance and "BM25" in finance
+    assert "не" in main and "1 641 322" in main
+    print("PASS: three finance scenarios independently recalculated and cross-checked "
+          "against main submission, KPI and release documentation")
     print("PASS: official case contract, 1–4 + 6, separate 5,",
           f"main={len(main)} chars, seven unadjudicated examples, ten slides")
 
