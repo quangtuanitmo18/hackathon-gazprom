@@ -1,0 +1,71 @@
+{
+  "timestamp_utc": "2026-10-30T10:30:17.514481+00:00",
+  "source": "GitBugs Hadoop original CSVs",
+  "source_commit": "eadf2d6794990a1aaa26d0ae15391f29f8969301",
+  "source_checksums": {
+    "reports.csv": "a04ac6238c39afaf97b9ffb2a416c1318dd85672a31e9a6dd74f64e199b77358",
+    "links.csv": "5d9978c8aaeb65fcaf2386fdd796a9023931dd4b66e3c5751f111db6624b6dc0"
+  },
+  "total_reports": 2503,
+  "positive_pairs": 66,
+  "source_labeled_query_ids": 129,
+  "evaluation": "STATIC corpus-wide, leave-one-out, positive-link only",
+  "k_values": [
+    1,
+    5,
+    10
+  ],
+  "python": "3.11.17",
+  "environment": "GitHub Actions Ubuntu runner, CPU",
+  "limits": [
+    "Queries selected for known positive duplicate links, not all support tickets.",
+    "Unlinked pairs have unknown labels; no precision/F1 measured.",
+    "No final issue resolution, status, duplicate label or future metadata used as retrieval features.",
+    "Unsupervised static retrieval, not an online/chronological replay.",
+    "No claim of company-specific performance, reduction in tickets or ROI."
+  ],
+  "models": {
+    "tfidf": {
+      "model": "word unigrams+bigrams TF-IDF cosine, 60000 features",
+      "metrics": {
+        "queries_total": 129,
+        "queries_evaluated": 129,
+        "queries_without_positive": 0,
+        "queries_without_ranking": 0,
+        "queries_with_unavailable_positive": 0,
+        "hit_at_1": 0.4186046511627907,
+        "recall_at_1": 0.41472868217054265,
+        "mrr_at_1": 0.4186046511627907,
+        "hit_at_5": 0.6201550387596899,
+        "recall_at_5": 0.6162790697674418,
+        "mrr_at_5": 0.4931524547803618,
+        "hit_at_10": 0.6976744186046512,
+        "recall_at_10": 0.689922480620155,
+        "mrr_at_10": 0.5038298265042452
+      },
+      "index_seconds": 0.61337,
+      "search_seconds": 0.17434
+    },
+    "bm25": {
+      "model": "BM25 k1=1.5,b=0.75, smoothed positive IDF, technical-aware tokenization",
+      "metrics": {
+        "queries_total": 129,
+        "queries_evaluated": 129,
+        "queries_without_positive": 0,
+        "queries_without_ranking": 0,
+        "queries_with_unavailable_positive": 0,
+        "hit_at_1": 0.3798449612403101,
+        "recall_at_1": 0.37209302325581395,
+        "mrr_at_1": 0.3798449612403101,
+        "hit_at_5": 0.6589147286821705,
+        "recall_at_5": 0.6511627906976745,
+        "mrr_at_5": 0.47739018087855306,
+        "hit_at_10": 0.7131782945736435,
+        "recall_at_10": 0.7054263565891473,
+        "mrr_at_10": 0.48428694475206113
+      },
+      "index_seconds": 0.11418,
+      "search_seconds": 1.7866
+    }
+  }
+}
