@@ -141,3 +141,19 @@ def test_invalid_clock_policy_and_limit_are_rejected():
 
 def test_missing_event_time_omitted_without_fabricating_observation_time():
     assert activity((ticket("a", 1), "p1"), (ticket("b", None), "p2")) == ()
+
+
+def test_recent_pair_not_starved_by_100_prior_only_pairs_in_ranked_shortlist():
+    # Prior-only pairs must be filtered BEFORE the candidate ranker top-K,
+    # otherwise 153 high-ranking old/old pairs can hide new pair evidence.
+    older = [
+        (ticket("old-" + str(i), 30, text="Сбой поиска документа склад HTTP 500"), "old-owner-" + str(i))
+        for i in range(18)
+    ]
+    recent = [
+        (ticket("recent-" + str(i), i + 1, text="Авторизация платежный шлюз HTTP 403 токен сессии отклонен"), "new-owner-" + str(i))
+        for i in range(2)
+    ]
+    keys = {ticket_key(t) for t, _ in recent}
+    result = activity(*(older + recent))
+    assert any({row.ticket_key_a, row.ticket_key_b} == keys for row in result)
