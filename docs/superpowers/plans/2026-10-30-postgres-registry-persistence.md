@@ -9,7 +9,7 @@
 
 ## Global constraints
 
-No external Jira/YouTrack writes; raw user data never committed. Keep \`ProblemRegistry\` existing behavior. No unauthenticated review mutations; no SQLAlchemy \`create_all\` in main app. Scope always trusted/authenticated at future API layer. Record limitations of JSONB snapshot O(N).
+No external Jira/YouTrack writes; raw user data never committed. Keep `ProblemRegistry` existing behavior. No unauthenticated review mutations; no SQLAlchemy `create_all` in main app. Scope always trusted/authenticated at future API layer. Record limitations of JSONB snapshot O(N).
 
 ## Review focus
 
@@ -21,29 +21,39 @@ No external Jira/YouTrack writes; raw user data never committed. Keep \`ProblemR
 
 ### Task 1 — Versioned state codec for existing domain
 
-**Files:** \`src/productpulse/incident/registry.py\`, \`tests/incident/test_registry_snapshot.py\`.
+**Files:** `src/productpulse/incident/registry.py`, `tests/incident/test_registry_snapshot.py`.
 
-- [ ] Write pytest tests for empty/complex roundtrip, approval idempotency after restore, post-split revocation survives reload, audit ordering, unknown version/corruption rejection.
-- [ ] Verify RED in CI (missing \`to_state\`/\`from_state\`), record run.
-- [ ] Add \`registry.to_state() -> dict\` and \`ProblemRegistry.from_state(payload) -> ProblemRegistry\` explicit typed encoding/decoding, no pickle.
-- [ ] Verify GREEN and entire suite, commit.
+- [x] Write pytest tests for empty/complex roundtrip, approval idempotency after restore, post-split revocation survives reload, audit ordering, unknown version/corruption rejection.
+- [x] Verify RED in CI (missing `to_state`/`from_state`), record run.
+- [x] Add `registry.to_state() -> dict` and `ProblemRegistry.from_state(payload) -> ProblemRegistry` explicit typed encoding/decoding, no pickle.
+- [x] Verify GREEN and entire suite, commit.
 
 ### Task 2 — PostgreSQL transaction adapter and migration
 
-**Files:** \`src/productpulse/storage/models.py\`, \`src/productpulse/storage/repository.py\`, \`src/productpulse/storage/__init__.py\`, \`alembic.ini\`, \`migrations/env.py\`, \`migrations/versions/0001_registry.py\`, \`tests/storage/test_postgres_registry.py\`, \`pyproject.toml\`, \`.github/workflows/postgres-registry.yml\`.
+**Files:** `src/productpulse/storage/models.py`, `src/productpulse/storage/repository.py`, `src/productpulse/storage/__init__.py`, `alembic.ini`, `migrations/env.py`, `migrations/versions/0001_registry.py`, `tests/storage/test_postgres_registry.py`, `pyproject.toml`, `.github/workflows/postgres-registry.yml`.
 
-- [ ] RED integration tests against PostgreSQL 16 for empty/multiple scopes, full lifecycle and restart, idempotency after restart, rollback snapshot+audit, two competing transactions same tenant, old-key replay.
-- [ ] Confirm RED because repository implementation absent.
-- [ ] Implement \`PersistentProblemRegistry(engine).transact(scope_id, fn)\`, \`.read(scope_id, fn)\`, \`.audit(scope_id)\`; SQLAlchemy transaction with \`INSERT ON CONFLICT DO NOTHING\`, row \`FOR UPDATE\`, mutation+audit in single commit.
-- [ ] Implement reviewed Alembic migration and workflow Postgres service. Require migration executed before tests, no create_all shortcut.
-- [ ] Confirm GREEN on PostgreSQL real service plus full suite and Python matrix.
+- [x] RED integration tests against PostgreSQL 16 for empty/multiple scopes, full lifecycle and restart, idempotency after restart, rollback snapshot+audit, two competing transactions same tenant, old-key replay.
+- [x] Confirm RED because repository implementation absent.
+- [x] Implement `PersistentProblemRegistry(engine).transact(scope_id, fn)`, `.read(scope_id, fn)`, `.audit(scope_id)`; SQLAlchemy transaction with `INSERT ON CONFLICT DO NOTHING`, row `FOR UPDATE`, mutation+audit in single commit.
+- [x] Implement reviewed Alembic migration and workflow Postgres service. Require migration executed before tests, no create_all shortcut.
+- [x] Confirm GREEN on PostgreSQL real service plus full suite and Python matrix.
 
 ### Task 3 — Documentation, scope and safety
 
-- [ ] Document production gaps, setup commands and exact run IDs.
-- [ ] Update this ledger with independently inspected CI evidence.
-- [ ] Request PR review, remain draft and stacked on #11.
+- [x] Document production gaps, setup commands and exact run IDs.
+- [x] Update this ledger with independently inspected CI evidence.
+- [x] Request PR review, remain draft and stacked on #11.
 
 ## Important out-of-scope
 
 Full enterprise persistence normalization, JWT, RBAC, frontend/UI, LangGraph and exact human accuracy evaluation deferred. Never present passing tests as proof of production security.
+
+## Verified execution ledger (2026-10-30)
+
+- Task 1 RED: [41050142023](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41050142023) (snapshot API absent). First GREEN exposed an incorrect test replay payload timestamp; corrected test to distinguish revoked approval from idempotency collision. GREEN: [41050421296](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41050421296).
+- Task 2 first CI blocker was a GitHub service Docker health flag quoting error (`-U` parsed by Docker), not a PostgreSQL model bug; corrected to single-token `--health-cmd=pg_isready`.
+- Task 2 RED: [41050855678](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41050855678), Alembic migration working but repository module absent. GREEN: [41050922318](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41050922318), **184 tests passed on Python 3.11 and 3.13 against PostgreSQL 16**, including concurrent scope writes and rollback.
+- SQLite intentionally not used for locking proof. Alembic upgrade ran against a clean PostgreSQL service before the tests.
+- Ruling: per-scope JSONB snapshot with `SELECT FOR UPDATE` is acceptable hackathon MVP and leverages tested domain invariants. It is O(tenant state) per write, so normalize members and audit/event partitions before high-volume production.
+- Ruling: audit is application append-only, not database-tamperproof. Auth/RBAC/OIDC and human approval HTTP routes remain future work. No claim of security certification or company data accuracy.
+- Review: draft PR #13, stacked on #11, **not merged into main**.
