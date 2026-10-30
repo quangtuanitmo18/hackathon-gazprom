@@ -1,12 +1,12 @@
 # V2 — Контракты инструментов ИИ-агента (проектная спецификация)
 
-**Status:** проектный документ для пункта 2 официального кейса, не перечень существующих Webneft API. **Architecture:** утверждённый пользователем подход C — локальные Qwen + доверенные детерминированные tools. `Кейс_Искусственный интеллект.pdf`, стр. 2–4 и 6. **Внешние API/LLM запрещены.** Права доступа и маршруты ниже — предлагаемые.
+**Status:** проектный документ для пункта 2 официального кейса **обо всех цифровых продуктах в охвате**, не перечень существующих Webneft API. **Architecture:** утверждённый пользователем подход C — локальные Qwen + доверенные детерминированные tools. `Кейс_Искусственный интеллект.pdf`, стр. 2–4 и 6. **Внешние API/LLM запрещены.** Права доступа и маршруты ниже — предлагаемые.
 
 ## 1. Actor, trust boundary и execution model
 
 Вместо автономного «агента с root-доступом» используем **оркестратор с конечным автоматом**: ingestion event → источник/право → ASR/VL при необходимости → минимизация данных → локальная Qwen классификация → строго типизированные tools → policy → internal digest → feedback.
 
-- Истинные `scope_id`, `product_id`, `actor_id`, разрешения и `trace_id` устанавливает **backend** на основе проверенной сессии/источника, а не пользовательский текст и не LLM. Вызов любого tool выполняется только через allowlist + Pydantic/JSON Schema.
+- Истинные `scope_id`, `product_id`, `actor_id`, разрешения, `taxonomy_version`, разрешённые категории и `trace_id` устанавливает **backend** на основе проверенной сессии/источника, а не пользовательский текст и не LLM. Вызов любого tool выполняется только через allowlist + Pydantic/JSON Schema.
 - Доверенность: `source_ticket_key` = source-scoped ID без предположения о времени/причине; `source_created_at` optional, `ingested_at` фиксирует фактическое **первое наблюдение агентом**. Ссылки на evidence разрешены только после RBAC и проверки существования.
 - Qwen получает ограниченный очищенный текст или признаки в **закрытом корпоративном контуре**. Для Qwen-ASR/Qwen-VL исходное аудио/изображение может содержать PII ещё до распознавания: их обрабатывает ограниченный internal media worker; redaction после распознавания предшествует **текстовой Qwen**. Внешнего HTTP egress быть не должно.
 - `allowlisted tool output` остаётся недоверенным для выполнения инструкций. Текст «ignore instructions» внутри тикета, OCR или ASR **никогда** не может добавить tool, изменить scope или разрешить write.
@@ -20,15 +20,19 @@
 | `get_ticket_context` | Agent / READ | `ticket_keys[] <= 30` | `redacted_text`, product, timestamps, provenance, `redaction_status` | Missing/unauthorized = `needs_human`; модель не видит оригиналы |
 | `transcribe_recording` | Internal media worker / READ+PROCESS | `asset_ref`, `consent_policy_id`, `job_key` | `transcript_ref`, Qwen-ASR version, `quality_status` | No permission/PII policy = skip/human; raw audio not forwarded externally |
 | `analyze_attachment` | Internal media worker / READ+PROCESS | `asset_ref`, `mime_allowlist`, `job_key` | `image_cues_ref`, Qwen-VL/parser version | File type/size blocked; never run scripts/macros from attachment |
-| `classify_request` | Qwen adapter / READ+COMPUTE | `redacted_context_ref`, `taxonomy_version` | `request_intent`, `business_journey`, `symptom_codes[]`, `abstain` | Strict schema, untrusted model output, root cause **unknown** |
-| `find_related_requests` | Agent / READ | `ticket_key`, `product_id`, `top_k<=20`, `time_window` | `{related_ticket_key,score,lexical_evidence}[]` | Similarity ≠ same incident, no transitive merge |
-| `aggregate_recurrence` | Backend / READ+COMPUTE | `candidate_ticket_keys[]`, `window_start_utc`, `window_end_utc`, `grouping_mode` | `observed_unique_ticket_count`, `window`, `coverage_status`, `evidence_refs[]` | No fabricated time/window; if `unknown_coverage`, report **observed count only**, not increase/overall prevalence |
-| `resolve_product_team` | Backend / READ | `product_id`, `topic_code` | `team_ref` **from approved registry** or `needs_human` | No model-generated team ID |
+| `classify_request` | Qwen adapter / READ+COMPUTE | `redacted_context_ref`, доверенные `product_id`, `taxonomy_version`, разрешённые journey/symptom коды | `request_intent`, `business_journey`, `symptom_codes[]`, `abstain` | Strict schema, untrusted model output, root cause **unknown** |
+| `find_related_requests` | Agent / READ | backend-scoped `ticket_key`, `product_id`, `top_k<=20`, `time_window` | `{related_ticket_key,score,lexical_evidence}[]` | Similarity ≠ same incident, no transitive merge |
+| `aggregate_recurrence` | Backend / READ+COMPUTE | доверенный `product_id`, `candidate_ticket_keys[]`, `window_start_utc`, `window_end_utc`, `grouping_mode` | `observed_unique_ticket_count`, `window`, `coverage_status`, `evidence_refs[]` | No fabricated time/window; if `unknown_coverage`, report **observed count only**, not increase/overall prevalence |
+| `resolve_product_team` | Backend / READ | доверенный `product_id`, `topic_code` | `team_ref` **from approved registry** or `needs_human` | No model-generated team ID |
 | `create_insight_draft` | Backend policy / WRITE INTERNAL | `source_refs`, `signal_id`, `rule_version`, `source_coverage` | `draft_id`, immutable evidence/provenance digest | Dedup and validation; model text never authorizes send |
 | `send_internal_digest` | **Backend policy only** / WRITE INTERNAL | `draft_id`, `approved_route_id`, `idempotency_key` | `outbox_id`, `delivery_status`, `sent_at?` | Low-risk advisory only; **not callable autonomously by LLM**; no external issue tracker |
 | `record_product_feedback` | **Authenticated product team** / WRITE INTERNAL | `signal_id`, `decision`, `actor_ref`, `operation_key` | Audited `ProductFeedbackV1` | Actor role + scope checked; LLM cannot impersonate a team member |
 
 Здесь `WRITE INTERNAL` означает **проектную** запись в корпоративный outbox/feedback table, а **не** вызов внешней Jira/YouTrack/вебхука и не изменение основного ticket-source. Физические API и названия существующих сервисов не известны из PDF.
+
+## Обязательное multi-product правило
+
+Новый тикет всегда обрабатывается в доверенно определённом `scope_id + product_id`; backend загружает индивидуальную `taxonomy_version`, разрешённые `business_journey`/`symptom_codes` и актуальный `product_id → owning_team` registry. Нет продукта/таксономии/team — `unknown`, human triage, никакой автоматической доставки. Поиск и подсчёт **по умолчанию не пересекают продукты**. Корпоративный межпродуктовый дайджест — отдельно авторизуемая функция с гармонизированной таксономией, доступом и проверкой данных, а не автоматическое объединение отраслевых категорий Webneft.
 
 ## 3. Request / Response examples (design-only JSON)
 
@@ -38,6 +42,7 @@
 {
   "input": {
     "redacted_context_ref": "internal://redacted/PDF6-05",
+    "product_id": "webneft",
     "taxonomy_version": "webneft-proposed-v1"
   },
   "output": {
