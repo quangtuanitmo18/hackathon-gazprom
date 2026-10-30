@@ -13,6 +13,7 @@ dependencies = ["pydantic>=2,<3"]
 dev = ["pytest>=8,<10"]
 benchmark = ["scikit-learn>=1.5,<2"]
 dense = ["sentence-transformers>=3,<7"]
+storage = ["sqlalchemy>=2.0,<3", "psycopg[binary]>=3.2,<4", "alembic>=1.13,<2"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
