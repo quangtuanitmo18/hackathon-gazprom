@@ -1,0 +1,58 @@
+name: Rereflect pinned frontend build and HTTP smoke
+
+on:
+  push:
+    branches: [spike/rereflect-fit-gap]
+    paths:
+      - ".github/workflows/spike-rereflect-frontend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v4
+        with:
+          repository: haqaliz/rereflect
+          ref: 987dd9f0611c693524ec0cfba880517fa4d5ec57
+          path: upstream
+          persist-credentials: false
+      - name: Confirm upstream pin
+        run: test "$(git -C upstream rev-parse HEAD)" = "987dd9f0611c693524ec0cfba880517fa4d5ec57"
+      - name: Build Next.js frontend only
+        working-directory: upstream
+        run: docker compose -f docker-compose.prod.yml build frontend
+      - name: Start frontend without backend or external integrations
+        working-directory: upstream
+        run: docker compose -f docker-compose.prod.yml up -d --no-deps frontend
+      - name: Wait for HTTP and assert HTML response
+        run: |
+          python - <<'PY'
+          import time,urllib.request,urllib.error
+          end=time.monotonic()+110
+          while time.monotonic()<end:
+            try:
+              with urllib.request.urlopen("http://127.0.0.1:3000",timeout=5) as r:
+                body=r.read(150000)
+                print("HTTP",r.status,"bytes",len(body),"content_type",r.headers.get("Content-Type"))
+                if r.status==200 and b"<html" in body.lower():
+                  print("PASS Next.js HTML served")
+                  raise SystemExit(0)
+            except (OSError,urllib.error.URLError):
+              time.sleep(4)
+          raise SystemExit("FAIL Next.js route did not serve HTML")
+          PY
+      - name: Minimal service status
+        if: always()
+        working-directory: upstream
+        run: docker compose -f docker-compose.prod.yml ps || true
+      - name: Stop & remove temporary containers
+        if: always()
+        working-directory: upstream
+        run: docker compose -f docker-compose.prod.yml down -v --remove-orphans || true
