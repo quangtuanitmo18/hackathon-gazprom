@@ -30,7 +30,7 @@
 
 ### Task 1: Provenance manifest and safe local ingestion
 
-**Verification:** 18 unit tests passed locally. See [Task 1 evidence](../../evaluation/task1-verification.md). Original public CSVs have not been profiled and GitHub CI is pending.
+**Verification:** 21 unit tests passed locally. See [Task 1 evidence](../../evaluation/task1-verification.md). Original public CSVs have not been profiled and GitHub CI is pending.
 
 **Files:**
 - Create: `.gitignore`
