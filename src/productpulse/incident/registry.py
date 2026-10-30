@@ -13,6 +13,9 @@ from pydantic import ValidationError
 
 from productpulse.data.canonical import CanonicalTicketV1, ticket_key
 from productpulse.insights.trends import ProblemTimeline
+from productpulse.agent.proposals import (
+    VerifiedEvidence, InsightProposal, build_proposal, evidence_digest as digest_evidence,
+)
 from productpulse.incident.annotation import (
     PairAnnotation, PairLabel, adjudicate_pair, pair_identity,
 )
@@ -47,6 +50,29 @@ class ReviewProgress:
 
 
 @dataclass(frozen=True)
+class ProposalApproval:
+    proposal_id: str
+    problem_id: str
+    scope_id: str
+    revision: int
+    evidence_digest: str
+    approved_by: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class MockIssue:
+    mock_issue_id: str
+    proposal_id: str
+    problem_id: str
+    scope_id: str
+    revision: int
+    evidence_digest: str
+    created_by: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class AuditEvent:
     kind: str
     actor: str
@@ -69,6 +95,8 @@ class ProblemRegistry:
         self._approved: dict[str, PairApproval] = {}
         self._reviews: dict[str, tuple[PairAnnotation, ...]] = {}
         self._revoked_at: dict[str, datetime] = {}
+        self._proposal_approvals: dict[str, ProposalApproval] = {}
+        self._mock_issues: dict[str, MockIssue] = {}
         self._events: list[AuditEvent] = []
         self._operations: dict[str, tuple[tuple[object, ...], object]] = {}
         self._sequence = 0
@@ -486,6 +514,136 @@ class ProblemRegistry:
         return records
 
 
+    def _insight_evidence(self, problem_id: str) -> VerifiedEvidence:
+        """Confirmed membership only; a reviewed unmerged pair is not a group."""
+        try:
+            problem = self.get_problem(problem_id)
+        except KeyError as exc:
+            raise ValueError("verified active merged Problem required") from exc
+        if problem.status != "active" or len(problem.ticket_keys) < 2:
+            raise ValueError("verified active merged Problem with multiple tickets required")
+        if any(self._owners.get(key) != problem_id or
+               self._scopes.get(key) != problem.scope_id
+               for key in problem.ticket_keys):
+            raise ValueError("invalid verified Problem membership")
+        return VerifiedEvidence(
+            problem_id=problem_id, scope_id=problem.scope_id,
+            revision=problem.revision, ticket_keys=problem.ticket_keys,
+        )
+
+    def insight_proposals(self, trusted_scope: str, *, corpus_cap: int = 5000
+                          ) -> tuple[InsightProposal, ...]:
+        """Read-only projection. Never implicitly approve or publish."""
+        scope = self._required(trusted_scope, "trusted_scope")
+        if type(corpus_cap) is not int or corpus_cap < 1:
+            raise ValueError("invalid proposal capacity")
+        if len(self._tickets) > corpus_cap:
+            raise ValueError("proposal corpus capacity exceeded")
+        if any(s != scope for s in self._scopes.values()):
+            raise ValueError("registry scope mismatches trusted scope")
+        out: list[InsightProposal] = []
+        for problem in self.list_active():
+            if len(problem.ticket_keys) < 2:
+                continue
+            evidence = self._insight_evidence(problem.problem_id)
+            draft = build_proposal(evidence, trusted_scope=scope)
+            approval = self._proposal_approvals.get(draft.proposal_id)
+            issue = self._mock_issues.get(draft.proposal_id)
+            if approval is not None:
+                if (approval.scope_id != scope or
+                        approval.evidence_digest != draft.evidence_digest or
+                        approval.revision != draft.revision):
+                    raise ValueError("corrupt proposal approval snapshot")
+                draft = replace(draft, approval_status="approved")
+            if issue is not None:
+                if approval is None or issue.evidence_digest != draft.evidence_digest:
+                    raise ValueError("corrupt mock issue snapshot")
+                draft = replace(draft, mock_issue_id=issue.mock_issue_id)
+            out.append(draft)
+        return tuple(out)
+
+    def _current_proposal(
+        self, problem_id: str, expected_revision: int, claimed_digest: str
+    ) -> InsightProposal:
+        evidence = self._insight_evidence(problem_id)
+        if evidence.revision != expected_revision:
+            raise ValueError("stale Problem revision")
+        draft = build_proposal(evidence, trusted_scope=evidence.scope_id)
+        if claimed_digest != draft.evidence_digest:
+            raise ValueError("stale or fabricated proposal evidence digest")
+        return draft
+
+    def approve_insight(
+        self, problem_id: str, *, expected_revision: int, evidence_digest: str,
+        actor: str, reason: str, operation_key: str,
+    ) -> ProposalApproval:
+        actor = self._required(actor, "actor")
+        reason = self._required(reason, "reason")
+        op = self._required(operation_key, "operation_key")
+        # Check active membership BEFORE replay: old approval cannot survive a split.
+        draft = self._current_proposal(problem_id, expected_revision, evidence_digest)
+        sig: tuple[object, ...] = (
+            "insight_approval", draft.scope_id, draft.proposal_id,
+            evidence_digest, actor, reason,
+        )
+        previous = self._replay(op, sig)
+        if previous is not None:
+            assert isinstance(previous, ProposalApproval)
+            if self._proposal_approvals.get(draft.proposal_id) != previous:
+                raise ValueError("revoked or changed proposal approval cannot replay")
+            return previous
+        if draft.proposal_id in self._proposal_approvals:
+            raise ValueError("proposal already approved")
+        result = ProposalApproval(
+            proposal_id=draft.proposal_id, problem_id=problem_id,
+            scope_id=draft.scope_id, revision=draft.revision,
+            evidence_digest=evidence_digest, approved_by=actor, reason=reason,
+        )
+        self._proposal_approvals[draft.proposal_id] = result
+        self._event(
+            "insight_proposal_approved", actor, op,
+            (problem_id,), draft.evidence_ticket_keys, reason,
+        )
+        self._operations[op] = (sig, result)
+        return result
+
+    def publish_mock_insight(
+        self, problem_id: str, *, expected_revision: int, evidence_digest: str,
+        actor: str, reason: str, operation_key: str,
+    ) -> MockIssue:
+        actor = self._required(actor, "actor")
+        reason = self._required(reason, "reason")
+        op = self._required(operation_key, "operation_key")
+        draft = self._current_proposal(problem_id, expected_revision, evidence_digest)
+        sig: tuple[object, ...] = (
+            "insight_mock_publish", draft.scope_id, draft.proposal_id,
+            evidence_digest, actor, reason,
+        )
+        previous = self._replay(op, sig)
+        if previous is not None:
+            assert isinstance(previous, MockIssue)
+            if self._mock_issues.get(draft.proposal_id) != previous:
+                raise ValueError("revoked mock issue cannot replay")
+            return previous
+        approval = self._proposal_approvals.get(draft.proposal_id)
+        if approval is None or approval.evidence_digest != evidence_digest:
+            raise ValueError("matching human lead approval required before mock publish")
+        if draft.proposal_id in self._mock_issues:
+            raise ValueError("proposal already published to mock tracker")
+        result = MockIssue(
+            mock_issue_id=f"MOCK-{problem_id}-R{draft.revision}",
+            proposal_id=draft.proposal_id, problem_id=problem_id,
+            scope_id=draft.scope_id, revision=draft.revision,
+            evidence_digest=evidence_digest, created_by=actor, reason=reason,
+        )
+        self._mock_issues[draft.proposal_id] = result
+        self._event(
+            "insight_mock_published", actor, op,
+            (problem_id,), draft.evidence_ticket_keys, reason,
+        )
+        self._operations[op] = (sig, result)
+        return result
+
     def to_state(self) -> dict:
         """Versioned, JSON-only domain snapshot. Never use pickle or eval."""
         def pack_operation(value: object) -> dict:
@@ -495,6 +653,10 @@ class ProblemRegistry:
                 return {"kind": "approval", "value": asdict(value)}
             if isinstance(value, ReviewProgress):
                 return {"kind": "review_progress", "value": asdict(value)}
+            if isinstance(value, ProposalApproval):
+                return {"kind": "proposal_approval", "value": asdict(value)}
+            if isinstance(value, MockIssue):
+                return {"kind": "mock_issue", "value": asdict(value)}
             if isinstance(value, tuple) and all(isinstance(v, ProblemRecord) for v in value):
                 return {"kind": "problems", "value": [asdict(v) for v in value]}
             raise TypeError("unsupported domain operation result")
@@ -506,6 +668,8 @@ class ProblemRegistry:
             "owners": dict(self._owners),
             "problems": {key: asdict(value) for key, value in self._problems.items()},
             "approved": {key: asdict(value) for key, value in self._approved.items()},
+            "proposal_approvals": {key: asdict(v) for key, v in self._proposal_approvals.items()},
+            "mock_issues": {key: asdict(v) for key, v in self._mock_issues.items()},
             "reviews": {key: [review.model_dump(mode="json") for review in values]
                         for key, values in self._reviews.items()},
             "revoked_at": {key: value.isoformat() for key, value in self._revoked_at.items()},
@@ -552,6 +716,12 @@ class ProblemRegistry:
         reg._owners = dict(payload["owners"])
         reg._problems = {key: restore_problem(v) for key, v in payload["problems"].items()}
         reg._approved = {key: restore_approval(v) for key, v in payload["approved"].items()}
+        if not isinstance(payload.get("proposal_approvals", {}), dict) or not isinstance(payload.get("mock_issues", {}), dict):
+            raise ValueError("invalid proposal snapshot map")
+        reg._proposal_approvals = {
+            k: ProposalApproval(**v) for k, v in payload.get("proposal_approvals", {}).items()
+        }
+        reg._mock_issues = {k: MockIssue(**v) for k, v in payload.get("mock_issues", {}).items()}
         if not isinstance(payload.get("reviews", {}), dict):
             raise ValueError("invalid reviews snapshot mapping")
         reg._reviews = {key: tuple(PairAnnotation.model_validate(x) for x in values)
@@ -577,6 +747,10 @@ class ProblemRegistry:
                 v = data["value"]
                 result = ReviewProgress(pair_id=v["pair_id"],status=v["status"],
                                         reviewer_ids=tuple(v["reviewer_ids"]))
+            elif kind == "proposal_approval":
+                result = ProposalApproval(**data["value"])
+            elif kind == "mock_issue":
+                result = MockIssue(**data["value"])
             elif kind == "problems":
                 result = tuple(restore_problem(p) for p in data["value"])
             else:
@@ -617,4 +791,20 @@ class ProblemRegistry:
         if any(value.tzinfo is None or value.utcoffset() is None
                for value in reg._revoked_at.values()):
             raise ValueError("snapshot contains naive revocation timestamp")
+        # An approval only authorizes a particular tenant/revision/evidence
+        # snapshot. Historical approval rows may remain after splits; the
+        # current-proposal gate revalidates membership before every write.
+        for k, a in reg._proposal_approvals.items():
+            if (k != a.proposal_id or a.problem_id not in reg._problems or
+                a.scope_id != reg._problems[a.problem_id].scope_id or
+                a.revision < 2 or len(a.evidence_digest) != 64):
+                raise ValueError("invalid proposal approval in snapshot")
+        for k, issue in reg._mock_issues.items():
+            approval = reg._proposal_approvals.get(k)
+            if (k != issue.proposal_id or approval is None or
+                issue.scope_id != approval.scope_id or
+                issue.revision != approval.revision or
+                issue.evidence_digest != approval.evidence_digest or
+                issue.problem_id != approval.problem_id):
+                raise ValueError("invalid mock issue in snapshot")
         return reg
