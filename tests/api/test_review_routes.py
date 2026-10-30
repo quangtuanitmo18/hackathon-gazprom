@@ -333,7 +333,8 @@ def test_approved_pair_alone_must_not_create_trend_or_automatically_merge(api):
     assert store.audit(scope) == before
 
 
-def test_three_fully_approved_and_explicitly_merged_tickets_form_volume_signal(api):
+@pytest.mark.parametrize("missing_timestamp", [False, True])
+def test_three_fully_approved_and_explicitly_merged_tickets_form_volume_signal(api, missing_timestamp):
     from productpulse.data.canonical import CanonicalTicketV1, ticket_key
 
     c, store, scope, keys, base, signed = api
@@ -344,7 +345,7 @@ def test_three_fully_approved_and_explicitly_merged_tickets_form_volume_signal(a
             "source_system": "synthetic",
             "source_ticket_id": name,
             "provenance_id": "test",
-            "created_at": (now - timedelta(minutes=20)).isoformat(),
+            "created_at": None if (missing_timestamp and name == "trend-e") else (now - timedelta(minutes=20)).isoformat(),
             "body_redacted": "Сбой авторизации HTTP 403 после обновления",
         }
         response = c.post("/internal/v1/tickets", headers=base, json=packet)
@@ -396,9 +397,30 @@ def test_three_fully_approved_and_explicitly_merged_tickets_form_volume_signal(a
     observed = trends[0]
     assert observed["problem_id"] == pids[0]
     assert observed["revision"] == 3
-    assert observed["status"] == "new_activity"
-    assert (observed["current_count"], observed["previous_count"]) == (3, 0)
-    assert set(observed["current_ticket_keys"]) == set(member_keys)
+    assert observed["coverage_status"] == "unknown_coverage"
+    assert observed["eligible_for_alert"] is False
+    if missing_timestamp:
+        assert observed["status"] == "insufficient_timestamps"
+        assert observed["current_count"] == 2
+    else:
+        assert observed["status"] == "unknown_coverage"
+        assert observed["observed_pattern"] == "new_activity"
+        assert observed["current_count"] == 3
+    assert observed["previous_count"] == 0
+    assert set(observed["current_ticket_keys"]).issubset(set(member_keys))
     assert "root_cause" not in observed and "confidence" not in observed
     assert "body_redacted" not in observed
     assert store.audit(scope) == before
+
+    # Splitting invalidates active membership. Old pre-split trend must disappear.
+    def undo_merge(reg):
+        reg.split(
+            pids[0], partitions=tuple((key,) for key in member_keys),
+            actor="trusted-lead", reason="Correct mistaken grouping",
+            operation_key="trend-split", expected_revision=3,
+        )
+    store.transact(scope, undo_merge)
+    after_split = store.audit(scope)
+    response = c.get("/internal/v1/trends", headers=h(base, signed, "reviewer-1"))
+    assert response.status_code == 200 and response.json() == []
+    assert store.audit(scope) == after_split
