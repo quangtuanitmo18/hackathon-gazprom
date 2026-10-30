@@ -150,3 +150,54 @@ def test_client_cannot_override_tenant_scope(api):
     c,store,scope,keys,base,signed=api
     payload={**vote(keys),"scope_id":"attacker-scope"}
     assert c.post("/internal/v1/reviews",headers=h(base,signed,"person-1"),json=payload).status_code==422
+
+
+def test_concurrent_distinct_reviews_are_serialized_by_postgresql(api):
+    from concurrent.futures import ThreadPoolExecutor
+    c,store,scope,keys,base,signed=api
+    def submit_vote(who):
+        def action(reg):
+            return reg.submit_review(
+                keys[0],keys[1],reviewer_id="https://idp.example.org/realms/test#"+who,
+                label="same_incident",rationale="independent review",
+                operation_key="concurrent-"+who,
+            )
+        return store.transact(scope,action)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        out=list(pool.map(submit_vote,("reviewer-C","reviewer-D")))
+    statuses=store.read(scope,lambda r:r.review_statuses())
+    assert len(out)==2
+    assert len(statuses)==1 and statuses[0].status=="ready_for_lead"
+    assert set(statuses[0].reviewer_ids)=={
+        "https://idp.example.org/realms/test#reviewer-C",
+        "https://idp.example.org/realms/test#reviewer-D",
+    }
+    assert not store.read(scope,lambda r:r.active_approvals())
+    assert len([row for row in store.audit(scope) if row["kind"]=="pair_review_submitted"])==2
+
+
+def test_lead_approval_does_not_replay_a_revoked_link_after_split(api):
+    from productpulse.incident.registry import ProblemRegistry
+    c,store,scope,keys,base,signed=api
+    c.post("/internal/v1/reviews",headers=h(base,signed,"reviewer-A"),
+           json=vote(keys,"same_incident","vote-A"))
+    c.post("/internal/v1/reviews",headers=h(base,signed,"reviewer-B"),
+           json=vote(keys,"same_incident","vote-B"))
+    payload={"ticket_key_a":keys[0],"ticket_key_b":keys[1],
+             "reason":"Verified", "operation_key":"lead-once"}
+    approved=c.post("/internal/v1/reviews/approve",
+           headers=h(base,signed,"lead","productpulse_review_lead"),json=payload)
+    assert approved.status_code==201
+    def merge_and_split(reg):
+        p=reg.list_active()
+        merged=reg.merge(p[0].problem_id,p[1].problem_id,actor="lead",
+                         reason="same root cause",operation_key="merge",
+                         expected_primary_revision=1,expected_secondary_revision=1)
+        reg.split(merged.problem_id,partitions=((keys[0],),(keys[1],)),
+                  actor="lead",reason="correction",operation_key="split",
+                  expected_revision=merged.revision)
+    store.transact(scope,merge_and_split)
+    again=c.post("/internal/v1/reviews/approve",
+           headers=h(base,signed,"lead","productpulse_review_lead"),json=payload)
+    assert again.status_code==409
+    assert not store.read(scope,lambda r:r.active_approvals())
