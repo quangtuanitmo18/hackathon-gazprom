@@ -42,3 +42,11 @@ Files: `src/productpulse/api/app.py`, `tests/api/test_review_routes.py`.
 - Current Next.js UI uses shared **demo Basic Auth** and is **NOT authorized** to submit human reviews; do not expose buttons until real OIDC session/Keycloak is in place.
 - Existing registry JSONB snapshot still rewrites tenant state; audit not database WORM; product/customer data not uploaded.
 - Future: signed-in browser reviewer evidence view (redacted tickets, provenance, review history), Auth.js OIDC, protected server actions with CSRF and role checks, actual Keycloak integration test, human annotation export for metrics.
+
+### Additional reviewer workflow correction and cross-stack verification
+
+- Regression RED: [PostgreSQL CI 41056611734](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41056611734) showed the status remained `ready_for_lead` after actual lead approval.
+- Fixed the review status machine to return `approved` after lead signoff and preserve this after JSONB snapshot reload. GREEN: [PostgreSQL run 41056745380](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41056745380), **233 tests passed** on Python 3.11 and 3.13.
+- Dependency review: added `PyJWT[crypto]` to the `api` extra itself so existing FastAPI consumers work without separately requesting the reviewer extra.
+- Cross-stack regression: [Dashboard/Chromium run 41056745384](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41056745384) **SUCCESS**, 11 frontend tests, Next production build, real PostgreSQL→FastAPI→Next HTTP, 3 Playwright Chromium tests.
+- **UI boundary remains explicit:** shared demo Basic Auth is not independent reviewer identity. No human-vote buttons have been added to that session. A real OIDC user login/PKCE + reviewer evidence panel is the next design/test stage.
