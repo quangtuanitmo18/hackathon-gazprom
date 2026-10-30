@@ -6,6 +6,7 @@ consume parsed rows; file decoding and controlled access happen upstream.
 """
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from math import isfinite
 from typing import Any
 
@@ -106,3 +107,35 @@ def parse_mendeley_rows(rows: list[dict]) -> list[CanonicalTicket]:
             )
         )
     return records
+
+
+@dataclass(frozen=True)
+class MendeleyIssue:
+    """Metadata-only issue from original Mendeley v3 issues.csv.
+
+    Dates stay as raw strings until source timezone semantics are verified.
+    Not a text-bearing ticket; resolution is not a classification target.
+    """
+
+    source_id: str
+    project_id: str | None
+    created_at_raw: str | None
+    issue_type: str | None
+
+
+def parse_mendeley_issues(rows: list[dict]) -> list[MendeleyIssue]:
+    """Parse original issues.csv, never manufacture text from process metadata."""
+    indexed = _index_unique(rows, "Mendeley issues.csv", id_column="id")
+    result: list[MendeleyIssue] = []
+    for identifier, row in indexed.items():
+        _require_fields(row, {"issue_created", "issue_proj", "issue_type"}, "Mendeley issues.csv")
+        proj = row["issue_proj"]
+        created = row["issue_created"]
+        issue_type = row["issue_type"]
+        result.append(MendeleyIssue(
+            source_id=identifier,
+            project_id=str(proj).strip() if proj is not None and str(proj).strip() else None,
+            created_at_raw=str(created).strip() if created is not None and str(created).strip() else None,
+            issue_type=str(issue_type).strip() if issue_type is not None and str(issue_type).strip() else None,
+        ))
+    return result
