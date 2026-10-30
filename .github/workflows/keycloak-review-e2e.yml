@@ -2,12 +2,13 @@ name: Real Keycloak OIDC + PostgreSQL + Next.js Reviewer E2E
 
 on:
   push:
-    branches: [feat/keycloak-review-console, feat/retrieval-review-queue]
+    branches: [feat/keycloak-review-console, feat/retrieval-review-queue, feat/unverified-reviewer-dashboard]
     paths:
       - '.github/workflows/keycloak-review-e2e.yml'
       - 'apps/web/**'
       - 'src/productpulse/api/**'
       - 'src/productpulse/incident/**'
+      - 'src/productpulse/insights/**'
       - 'tests/e2e/**'
   workflow_dispatch:
 
@@ -94,13 +95,16 @@ jobs:
         run: |
           python - <<'PY'
           import json,urllib.request,os
+          from datetime import datetime,timedelta,timezone
+          created_at=(datetime.now(timezone.utc)-timedelta(minutes=15)).isoformat()
           for id_,body in [
               ("RU-A","Сбой ERP: авторизация после версии 2.1 возвращает HTTP 403"),
               ("RU-B","После обновления ERP 2.1 пользователи видят HTTP 403 при входе"),
           ]:
               data={"source_system":"synthetic","source_ticket_id":id_,
                     "provenance_id":"ci-only-fixture","product_id":"erp","component_id":"auth",
-                    "reported_version":"2.1","body_redacted":body,"error_codes":["HTTP 403"]}
+                    "reported_version":"2.1","body_redacted":body,"error_codes":["HTTP 403"],
+                    "created_at":created_at}
               req=urllib.request.Request("http://127.0.0.1:8000/internal/v1/tickets",
                   data=json.dumps(data).encode(),method="POST",
                   headers={"Content-Type":"application/json",
