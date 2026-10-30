@@ -92,10 +92,20 @@ def list_unverified_activity(
 
     # Reuse the tested, non-authoritative BM25 candidate ranker, which
     # requires narrative token overlap and excludes approved/same-Problem.
-    # IMPORTANT: it caps candidate pairs at 100 before this temporal filter,
-    # so these are *bounded suggestions*, not complete activity statistics.
+    # Time constraints are applied before the top-100 pair shortlist, so
+    # old-only pairs cannot starve current pairs. Retrieval still has a
+    # top-30 neighbor bound for each query: NOT an exhaustive incident count.
+    recent_keys = frozenset(
+        key for key, ts in lookup.items() if current_start <= ts < end
+    )
+    if not recent_keys:
+        return ()
     ranked = rank_review_candidates(
-        eligible, approved_pairs=approved_pairs, limit=100, corpus_cap=corpus_cap,
+        eligible,
+        approved_pairs=approved_pairs,
+        required_any_ticket_keys=recent_keys,
+        limit=100,
+        corpus_cap=corpus_cap,
     )
     results: list[UnverifiedCandidateActivity] = []
     for candidate in ranked:
