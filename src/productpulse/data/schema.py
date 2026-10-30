@@ -40,7 +40,9 @@ class CanonicalTicket(BaseModel):
     @field_validator("created_at", mode="before")
     @classmethod
     def reject_numeric_timestamp(cls, value: object) -> object:
-        if isinstance(value, (int, float, bool)):
+        if isinstance(value, (int, float, bool)) or (
+            isinstance(value, str) and value.strip().lstrip("+-").isdigit()
+        ):
             raise ValueError("timestamp must be an explicit timezone-aware datetime or ISO string")
         return value
 
