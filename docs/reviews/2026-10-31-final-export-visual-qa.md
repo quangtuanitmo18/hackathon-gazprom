@@ -43,3 +43,8 @@
 - [ ] Current standalone .mmd source diagrams have not been rendered and certified as four separate Mermaid files; PPTX redrawn vector diagrams **were** rendered/inspected.
 
 **Decision:** artifacts are **submission drafts prepared for independent review**. Keep PR #24 Draft; no merge, deploy, real company data access or external tracker write.
+
+
+## Post-export source synchronization addendum (2026-10-31)
+
+The earlier **"GitHub main Markdown differs from the export"** limitation is now resolved **for both Markdown source files**, by explicit user-requested synchronization: `submissions/main-solution.ru.md` equals `gazpromneft_main_reviewed.ru.md` exactly (13,037 Unicode characters); `submissions/05-effect-metrics.ru.md` equals `gazpromneft_05_effect_metrics.ru.md` exactly (9,466 Unicode characters). SHA-256 and Git blob proofs: [2026-10-31 source-sync review](./2026-10-31-export-markdown-github-sync-review.md). The older paragraph describing a divergence remains a **historical pre-sync observation**, not the current repository state. Existing binary exports were not changed or pushed by this source-sync operation; independent editorial approval remains outstanding.
