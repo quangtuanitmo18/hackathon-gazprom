@@ -54,6 +54,7 @@ class ProblemRegistry:
         self._owners: dict[str, str] = {}
         self._problems: dict[str, ProblemRecord] = {}
         self._approved: dict[str, PairApproval] = {}
+        self._revoked_at: dict[str, datetime] = {}
         self._events: list[AuditEvent] = []
         self._operations: dict[str, tuple[tuple[object, ...], object]] = {}
         self._sequence = 0
@@ -132,6 +133,8 @@ class ProblemRegistry:
         previous = self._replay(op, signature)
         if previous is not None:
             assert isinstance(previous, PairApproval)
+            if pair not in self._approved:
+                raise ValueError("revoked approval cannot be replayed")
             return previous
 
         ak, bk = ticket_key(a), ticket_key(b)
@@ -143,6 +146,11 @@ class ProblemRegistry:
             raise ValueError("cannot approve incident pairs across scope boundaries")
         if first.pair_id != pair or second.pair_id != pair:
             raise ValueError("pair identity does not match reviewed tickets")
+        revocation_time = self._revoked_at.get(pair)
+        if revocation_time is not None and (
+            first.reviewed_at <= revocation_time or second.reviewed_at <= revocation_time
+        ):
+            raise ValueError("fresh post-split human reviews required for revoked pair")
         result = adjudicate_pair(first, second)
         if result.status != "confirmed" or result.label != "same_incident":
             raise ValueError("approval requires confirmed same_incident from independent human reviewers")
@@ -281,8 +289,10 @@ class ProblemRegistry:
             self._problems[record.problem_id] = record
             for key in record.ticket_keys:
                 self._owners[key] = record.problem_id
+        revocation_time = datetime.now(timezone.utc)
         for pair in to_revoke:
             self._approved.pop(pair)
+            self._revoked_at[pair] = revocation_time
 
         self._event(
             "problem_split", actor, op,
