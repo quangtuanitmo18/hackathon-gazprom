@@ -19,10 +19,13 @@
 3. RED 2: identifier canonicalization regression -> 1 failed (IDs not trimmed).
 4. GREEN 2: pytest -q -> 16 passed.
 5. RED 3: credentials-bearing provenance URL and numeric timestamp -> 2 failed (DID NOT RAISE).
-6. GREEN 3: pytest -q -> **18 passed in 0.05s**, zero failed. python -m compileall -q src exit 0.
+6. GREEN 3: pytest -q -> **21 passed in 0.05s**, zero failed. python -m compileall -q src exit 0.
 7. git check-ignore -v data/raw/placeholder.csv -> .gitignore:2:/data/raw/ (ignored).
 
 This evidence is **local unit testing on artificial fixtures**, NOT real-dataset accuracy and NOT a statement about remote GitHub CI.
+
+8. RED 4: nonfinite CSV identifiers/labels and numeric-string timestamp -> 3 tests failed before correction.
+9. GREEN 4: full suite -> 21 passed in 0.05s; compileall exit 0.
 
 ## Limitations and remaining work
 
