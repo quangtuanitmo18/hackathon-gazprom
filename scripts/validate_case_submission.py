@@ -93,15 +93,17 @@ def verify() -> None:
         "create_insight_draft", "send_internal_digest",
         "record_product_feedback",
     ):
-        assert tool_name in tools_doc and tool_name in prompt_doc + contract_doc + tools_doc
-    test_cases = re.findall(r"(?m)^\\| T\\d{2} \\|", test_doc)
+        assert tool_name in tools_doc, f"Missing documented tool: {tool_name}"
+    test_cases = re.findall(r"(?m)^\| T\d{2} \|", test_doc)
     assert len(test_cases) >= 20, f"Expected >=20 adversarial scenarios, got {len(test_cases)}"
     examples = 0
     for document in (prompt_doc, contract_doc):
-        for source_json in re.findall(r"```json\\s*([\\s\\S]*?)```", document):
+        for source_json in re.findall(r"```json\s*([\s\S]*?)```", document):
             json.loads(source_json)
             examples += 1
     assert examples >= 7, "Expected at least 7 parseable design JSON examples"
+    assert "aggregate_recurrence" in prompt_doc
+    assert "send_internal_digest" in prompt_doc
     assert "no external" in contract_doc.lower() or "внеш" in contract_doc
     print(f"PASS: {len(diagram_names)} Mermaid sources synchronized with gallery, "
           f"{len(test_cases)} scenarios, {examples} syntactically valid JSON examples")
