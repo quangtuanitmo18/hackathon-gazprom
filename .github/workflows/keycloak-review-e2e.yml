@@ -2,7 +2,7 @@ name: Real Keycloak OIDC + PostgreSQL + Next.js Reviewer E2E
 
 on:
   push:
-    branches: [feat/keycloak-review-console]
+    branches: [feat/keycloak-review-console, feat/retrieval-review-queue]
     paths:
       - '.github/workflows/keycloak-review-e2e.yml'
       - 'apps/web/**'
