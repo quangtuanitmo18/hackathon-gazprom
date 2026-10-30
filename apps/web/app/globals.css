@@ -116,3 +116,43 @@ tbody tr:last-child td{border-bottom:0}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 @media(max-width:1060px){.sidebar{width:210px}.main-content{padding:35px 25px}.topbar{padding:0 25px}.stat-grid{gap:10px}.stat-card{padding:17px}}
 @media(max-width:750px){.app-shell{display:block}.sidebar{width:100%;height:auto;position:static;border-right:0;border-bottom:1px solid var(--border);padding:14px 18px}.brand{padding:0 0 13px}.sidebar-label,.sidebar-bottom{display:none}.navigation{flex-direction:row}.nav-arrow{display:none}.topbar{height:56px;padding:0 18px}.topbar-environment{display:none}.main-content{padding:28px 16px}.stat-grid,.detail-grid{grid-template-columns:1fr}.stat-card{min-height:145px}.section-heading,.section-title{align-items:flex-start;flex-direction:column}.live-indicator{align-self:flex-start}.table-tools{gap:10px}.table-subtitle{white-space:nowrap}h1{font-size:29px}}
+
+
+/* Independent reviewer console — reuses existing ProductPulse panel primitives */
+.review-console{display:flex;flex-direction:column;gap:20px}
+.review-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 17px;border-radius:12px;border:1px solid #31574c;background:#102b29}
+.review-toolbar>span{display:flex;align-items:center;gap:10px;color:#b1dacc}
+.review-toolbar svg{color:#61d6bb}
+.review-refresh{display:inline-flex;align-items:center;gap:9px;padding:8px 11px;background:#1b453f;color:#cff5eb;border:1px solid #316458;border-radius:9px}
+.review-refresh:disabled{opacity:.6;cursor:not-allowed}
+.review-selectors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.review-selectors label,.review-field{display:flex;flex-direction:column;gap:9px;color:#acbeca;font-size:12px;font-weight:650}
+.review-selectors select,.review-field textarea{width:100%;background:#101b28;border:1px solid #3b5162;border-radius:10px;color:#e8f3fa;padding:13px 14px;outline:none}
+.review-selectors select:focus,.review-field textarea:focus{border-color:#6ddbc4}
+.review-tickets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.review-ticket{background:#172331;border:1px solid #2a3d4d;border-radius:14px;padding:21px;min-height:250px;display:flex;flex-direction:column;gap:15px}
+.review-ticket-title{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#72d6bd}
+.review-ticket code{font-size:12px;color:#d1e7e2;overflow-wrap:anywhere}
+.review-fields{display:flex;flex-wrap:wrap;gap:11px;color:#8fa7b6;font-size:11px}
+.review-fields strong{color:#d5e2e8}
+.review-body{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.7;border:1px solid #2b4051;background:#111d29;padding:15px;border-radius:10px;flex:1}
+.review-error-codes{font-size:11px;color:#a9c8bd}
+.review-state{display:flex;gap:13px;align-items:flex-start;padding:18px;border-radius:13px;background:#15312c;border:1px solid #2a5a4d}
+.review-state svg{color:#73d6bb;flex-shrink:0}
+.review-state strong{font-size:14px;color:#d0f0e2}
+.review-state p{margin-top:7px;font-size:12px;color:#95c0b2;line-height:1.6}
+.review-form{padding-bottom:22px}
+.review-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:20px 22px}
+.review-choice{display:flex;align-items:flex-start;gap:11px;padding:15px;background:#121f2c;border:1px solid #2c4355;border-radius:10px;cursor:pointer}
+.review-choice:hover{border-color:#5c9987}
+.review-choice input{margin:4px 0 0;accent-color:#5bd4b4}
+.review-choice strong{font-size:12px;color:#e2f2f1;display:block}
+.review-choice small{font-size:11px;line-height:1.5;color:#90a7b7;display:block;margin-top:6px}
+.review-field{margin:0 22px 16px}
+.review-submit,.login-button{display:inline-flex;align-items:center;gap:9px;margin:0 22px;padding:12px 17px;background:#55c9ad;color:#0b2825;font-weight:750;border:0;border-radius:10px}
+.login-button{margin:0;width:max-content}
+.review-submit:hover:not(:disabled),.login-button:hover{background:#77e2c8}
+.review-submit:disabled{opacity:.42;cursor:not-allowed}
+.review-hint{font-size:12px;color:#8096a7;padding:10px 22px 0}
+.review-message,.review-success{padding:16px 19px;background:#18372f;border:1px solid #3f7964;border-radius:10px;color:#b4edd8;font-size:13px}
+@media(max-width:850px){.review-selectors,.review-tickets,.review-options{grid-template-columns:1fr}}
