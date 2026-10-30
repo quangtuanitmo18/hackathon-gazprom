@@ -29,28 +29,37 @@
 
 ### Task 1: Source & contract proof
 **Files:** `submissions/main-solution.ru.md`, `submissions/05-effect-metrics.ru.md`, `submissions/presentation-outline.ru.md`, `docs/requirements/pdf-traceability.md`.
-- [ ] Compare final narrative against official PDF pages 2–5 and 7.
-- [ ] Check exact math and separate KPI definitions against existing CI-verified scenario inputs.
-- [ ] Review unsupported claim risk, especially 2026 Webneft features, Qwen endpoint, real throughput, ROI and root cause.
-- [ ] Record source-to-slide/script mapping in final QA report.
+- [x] Compare final narrative against official PDF pages 2–5 and 7.
+- [x] Check exact math and separate KPI definitions against existing CI-verified scenario inputs.
+- [x] Review unsupported claim risk, especially 2026 Webneft features, Qwen endpoint, real throughput, ROI and root cause.
+- [x] Record source-to-slide/script mapping in final QA report.
 
 ### Task 2: Real formatted main submission
 **Output:** `main-solution.ru.docx`, `main-solution.ru.pdf` (no extra appendix); check at most 15k Cyrillic/Unicode characters in visible DOCX text.
-- [ ] Author using edited Russian source (not fabricated case claims) with consistent headings, tables, prompt code block, finance.
-- [ ] Render via docx skill `render_docx.py --emit_pdf` and visually inspect every page.
-- [ ] Extract visible DOCX text and measure length; PDF extract sanity check for glyphs and clipping; fix and re-render.
+- [x] Author using edited Russian source (not fabricated case claims) with consistent headings, tables, prompt code block, finance.
+- [x] Render via docx skill `render_docx.py --emit_pdf` and visually inspect every page.
+- [x] Extract visible DOCX text and measure length; PDF extract sanity check for glyphs and clipping; fix and re-render.
 
 ### Task 3: Ten-slide 16:9 presentation
 **Output:** `intelligence-cup-webneft.ru.pptx`; no external photo fetching necessary.
-- [ ] Use editable native vector shapes/dataflow in PowerPoint, based on four existing Mermaid diagrams. Export diagram sources remain preserved in `docs/diagrams/*.mmd`.
-- [ ] Match outline 10 key slides, one main message each. Use small, sparse text and no off-slide elements.
-- [ ] Render every PPTX slide to PDF/PNG, inspect Cyrillic and layout at presentation size; iterate.
+- [x] Use editable native vector shapes/dataflow in PowerPoint, based on four existing Mermaid diagrams. Export diagram sources remain preserved in `docs/diagrams/*.mmd`.
+- [x] Match outline 10 key slides, one main message each. Use small, sparse text and no off-slide elements.
+- [x] Render every PPTX slide to PDF/PNG, inspect Cyrillic and layout at presentation size; iterate.
 
 ### Task 4: Final review, CI, handoff
 **Files:** `docs/reviews/2026-10-31-final-export-visual-qa.md`; optionally update README submission links.
-- [ ] Verify exact artifact paths exist in current runtime and attach them directly in chat.
+- [x] Verify exact artifact paths exist in current runtime and attach them directly in chat.
 - [ ] Run existing Github CI on final source HEAD and verify job logs.
-- [ ] Record factual limits (no real baseline or inference, independent editorial approval missing).
-- [ ] Keep PR Draft; no merge, deploy or external writes; if binary repository upload not available, explain session artifacts remain downloadable but aren't in GitHub yet.
+- [x] Record factual limits (no real baseline or inference, independent editorial approval missing).
+- [x] Keep PR Draft; no merge, deploy or external writes; if binary repository upload not available, explain session artifacts remain downloadable but aren't in GitHub yet.
 
 **Human approval required:** independent domain/editorial review before competition submission; generated PDFs/slides are *deliverables for team review*, not confirmed filed contest entries.
+
+
+## Execution checkpoint (author self-review, 2026-10-31)
+
+- Russian DOCX + PDF generated and visually inspected; **3 A4 pages**, 11,570 extracted DOCX-visible characters and 12,130 source Markdown chars (<15k).
+- Q5 standalone Markdown copy 8,496 Unicode characters; NOT a second section in the DOCX.
+- Presentation **10 actual slides** (editable native PPTX shapes) and 10-page PDF render, visually inspected, with two initial visual problems corrected (slide 10 note collision and slide 4 last block position).
+- [Detailed artifact hashes, review and remaining risks](../../reviews/2026-10-31-final-export-visual-qa.md).
+- **Outstanding:** verify latest repo-source GitHub CI run and obtain independent external Russian/business review and organizer upload confirmation. The chat-delivered binaries are **not committed to GitHub** because only text file writes are available in the linked GitHub workflow.
