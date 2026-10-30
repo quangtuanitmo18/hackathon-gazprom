@@ -1,0 +1,54 @@
+{
+  "generated_utc": "2026-10-30T10:14:56.661861+00:00",
+  "source": "GitBugs: Hadoop issue reports and duplicate links",
+  "repo": "https://github.com/av9ash/gitbugs",
+  "source_commit": "eadf2d6794990a1aaa26d0ae15391f29f8969301",
+  "license_as_stated_by_author": "CC-BY-4.0",
+  "reports": {
+    "url": "https://raw.githubusercontent.com/av9ash/gitbugs/eadf2d6794990a1aaa26d0ae15391f29f8969301/hadoop/hadoop_bugs.csv",
+    "sha256": "a04ac6238c39afaf97b9ffb2a416c1318dd85672a31e9a6dd74f64e199b77358",
+    "bytes": 2679496,
+    "rows": 2503,
+    "columns": [
+      "Summary",
+      "Issue id",
+      "Status",
+      "Priority",
+      "Resolution",
+      "Created",
+      "Resolved",
+      "Affects Version/s",
+      "Description"
+    ],
+    "id_column": "Issue id",
+    "distinct_ids": 2503,
+    "invalid_ids": 0,
+    "repeated_ids": 0,
+    "rows_with_possible_email_pattern": 48,
+    "raw_report_text_published_in_git": false
+  },
+  "links": {
+    "url": "https://raw.githubusercontent.com/av9ash/gitbugs/eadf2d6794990a1aaa26d0ae15391f29f8969301/hadoop/hadoop_bugs-combined.csv",
+    "sha256": "5d9978c8aaeb65fcaf2386fdd796a9023931dd4b66e3c5751f111db6624b6dc0",
+    "bytes": 2302,
+    "rows": 126,
+    "columns": [
+      "Issue id",
+      "Duplicate id"
+    ],
+    "valid_unique_positive_pairs": 66,
+    "orphan_edges": 0,
+    "self_links": 0,
+    "invalid_rows": 0,
+    "duplicate_or_reciprocal_edges": 61,
+    "unlabeled_rows": 0,
+    "index_validated": true,
+    "missing_edge_means_negative": false
+  },
+  "limitations": [
+    "Duplicate-of is issue-tracker label, not guaranteed same root cause or support incident.",
+    "No unlinked report is treated as a confirmed negative pair.",
+    "Source may contain PII, therefore full reports are not committed to public Git.",
+    "Temporal input must not include eventual resolution or duplicate-of outcomes."
+  ]
+}
