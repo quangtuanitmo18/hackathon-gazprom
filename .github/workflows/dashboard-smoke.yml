@@ -2,7 +2,7 @@ name: Dashboard Next.js + PostgreSQL E2E smoke
 
 on:
   push:
-    branches: [feat/problem-dashboard, feat/oidc-reviewer-workflow]
+    branches: [feat/problem-dashboard, feat/oidc-reviewer-workflow, feat/retrieval-review-queue]
     paths:
       - 'apps/web/**'
       - 'src/productpulse/api/**'
