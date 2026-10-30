@@ -5,7 +5,7 @@ scope and actor via RBAC. No similarity-based auto merges or tracker writes.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, replace
 from datetime import datetime, timezone
 from typing import Literal
 
