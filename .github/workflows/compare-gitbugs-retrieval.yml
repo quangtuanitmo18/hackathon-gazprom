@@ -1,0 +1,70 @@
+name: Compare TF-IDF BM25 dense and hybrid
+
+on:
+  push:
+    branches: [feat/hybrid-retrieval-benchmark]
+    paths:
+      - scripts/run_retrieval_comparison.py
+      - src/productpulse/eval/retrieval_methods.py
+      - tests/eval/test_retrieval_methods.py
+      - .github/workflows/compare-gitbugs-retrieval.yml
+      - pyproject.toml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  comparison:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install benchmark and embedding dependencies
+        run: python -m pip install -e ".[dev,benchmark,dense]"
+      - name: Run all tests before benchmarking
+        run: python -m pytest -q
+      - name: Audit the exact pinned source
+        run: python scripts/datasets/audit_gitbugs.py
+      - name: Lexical comparison TF-IDF vs BM25
+        run: python scripts/run_retrieval_comparison.py --mode lexical
+      - name: Dense multilingual MiniLM and RRF hybrid
+        id: dense
+        continue-on-error: true
+        run: python scripts/run_retrieval_comparison.py --mode dense
+      - name: Upload measured JSON results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitbugs-retrieval-comparison
+          path: docs/evaluation/gitbugs-retrieval-*.json
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Commit aggregate evaluation reports only
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if compgen -G 'docs/evaluation/gitbugs-retrieval-*.json' > /dev/null; then
+            git add docs/evaluation/gitbugs-retrieval-*.json
+            if ! git diff --cached --quiet; then
+              git commit -m "eval: record pinned GitBugs retrieval comparison [skip ci]"
+              git push
+            fi
+          fi
+      - name: Require dense model benchmark success
+        if: steps.dense.outcome != 'success'
+        run: |
+          echo "::error::Dense retrieval failed; lexical results remain available. No fabricated dense metrics."
+          exit 1
