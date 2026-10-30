@@ -27,5 +27,15 @@ Required workflow: test-driven-development, executing-plans, verification-before
 - [ ] Document two-rater labeling and adjudicator protocol, incident-vs-topic distinction, real pair sampling without assuming unlabeled negatives, family-disjoint holdout and privacy controls.
 - [ ] Record RED/GREEN evidence and review blockers.
 
+## Task 4: Connect retrieval candidates to evidence screening
+
+**Files:** src/productpulse/incident/batch.py, tests/incident/test_batch.py.
+
+- [ ] Write failing tests for source-scoped candidate IDs, self-exclusion, stable retrieval ordering, duplicate candidate IDs, unavailable candidate fail-closed, missing symptom abstention, and zero write-side effects.
+- [ ] Verify RED before creating batch module.
+- [ ] Implement screen_retrieved_candidates(query, candidate_keys, tickets_by_key, symptom_keys) -> tuple[CandidateReview,...]; no model calls, no external actions.
+- [ ] Verify targeted and complete CI on Python 3.11/3.13; leave a reproducibility ledger.
+- [ ] Preserve original retrieval rankings and non-matching statuses as reviewer evidence, never silently interpret a missing candidate as negative.
+
 ## Not in scope
 No incident clustering F1 without real human gold; no automatic issue writes, cluster merges, or claimed Gazprom Neft ROI. Next step is versioned Problem Registry and real annotated pair benchmark.
