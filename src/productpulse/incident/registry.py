@@ -222,3 +222,72 @@ class ProblemRegistry:
         )
         self._operations[op] = (signature, merged)
         return merged
+
+
+    def split(
+        self, problem_id: str, partitions: tuple[tuple[str, ...], ...] | list[tuple[str, ...]],
+        *, actor: str, reason: str, operation_key: str,
+        expected_revision: int,
+    ) -> tuple[ProblemRecord, ...]:
+        """Correct a merge with explicit partitions and revoke obsolete approvals.
+
+        Only active membership changes. Prior approvals remain in audit events,
+        not in the set authorizing new merges. No persistent/automatic undo.
+        """
+        actor = self._required(actor, "actor")
+        reason = self._required(reason, "reason")
+        op = self._required(operation_key, "operation_key")
+        parts = tuple(tuple(p) for p in partitions)
+        signature: tuple[object, ...] = (
+            "split", problem_id, parts, actor, reason, expected_revision,
+        )
+        previous = self._replay(op, signature)
+        if previous is not None:
+            assert isinstance(previous, tuple)
+            return previous
+
+        original = self.get_problem(problem_id)
+        if original.status != "active":
+            raise ValueError("cannot split non-active problem")
+        if original.revision != expected_revision:
+            raise ValueError("stale revision; reload before split")
+        if len(parts) < 2 or any(not part for part in parts):
+            raise ValueError("partitions must include at least two nonempty groups")
+        flat = tuple(key for part in parts for key in part)
+        if len(flat) != len(set(flat)) or set(flat) != set(original.ticket_keys):
+            raise ValueError("partitions must exactly cover each member once")
+
+        groups = {key: i for i, part in enumerate(parts) for key in part}
+        to_revoke = tuple(sorted(
+            pid for pid, approval in self._approved.items()
+            if all(key in groups for key in approval.ticket_keys)
+            and groups[approval.ticket_keys[0]] != groups[approval.ticket_keys[1]]
+        ))
+
+        # Validation complete. Every mutation below is local to one process.
+        main = ProblemRecord(
+            problem_id=problem_id, scope_id=original.scope_id,
+            ticket_keys=tuple(sorted(parts[0])), revision=original.revision + 1,
+        )
+        new_records = [
+            ProblemRecord(
+                problem_id=self._new_id(), scope_id=original.scope_id,
+                ticket_keys=tuple(sorted(part)), parent_id=problem_id,
+            )
+            for part in parts[1:]
+        ]
+        records = (main, *new_records)
+        for record in records:
+            self._problems[record.problem_id] = record
+            for key in record.ticket_keys:
+                self._owners[key] = record.problem_id
+        for pair in to_revoke:
+            self._approved.pop(pair)
+
+        self._event(
+            "problem_split", actor, op,
+            tuple(record.problem_id for record in records),
+            tuple(sorted(flat)), reason, to_revoke,
+        )
+        self._operations[op] = (signature, records)
+        return records
