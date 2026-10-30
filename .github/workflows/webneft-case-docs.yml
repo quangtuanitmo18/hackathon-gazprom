@@ -6,6 +6,11 @@ on:
     paths:
       - 'submissions/**'
       - 'docs/requirements/**'
+      - 'docs/architecture/**'
+      - 'docs/diagrams/**'
+      - 'docs/agent/**'
+      - 'docs/evaluation/**'
+      - 'docs/superpowers/**'
       - 'data/webneft/**'
       - 'scripts/validate_case_submission.py'
       - '.github/workflows/webneft-case-docs.yml'
