@@ -6,6 +6,7 @@ consume parsed rows; file decoding and controlled access happen upstream.
 """
 
 from collections.abc import Mapping
+from math import isfinite
 from typing import Any
 
 from productpulse.data.schema import CanonicalTicket
@@ -18,7 +19,9 @@ def _require_fields(row: Mapping[str, Any], fields: set[str], source: str) -> No
 
 
 def _required_id(value: Any, source: str) -> str:
-    if value is None or isinstance(value, bool):
+    if value is None or isinstance(value, bool) or (
+        isinstance(value, float) and not isfinite(value)
+    ):
         raise ValueError(f"{source}: invalid blank ID")
     value = str(value).strip()
     if not value:
@@ -65,8 +68,8 @@ def parse_zenodo_split(
     records = []
     for identifier, x in x_by_id.items():
         label = y_by_id[identifier]["label"]
-        if label is None or not str(label).strip():
-            raise ValueError(f"Zenodo y: missing label for source ID {identifier}")
+        if label is None or (isinstance(label, float) and not isfinite(label)) or not str(label).strip():
+            raise ValueError(f"Zenodo y: missing or invalid label for source ID {identifier}")
         records.append(
             CanonicalTicket(
                 source="zenodo-it-support-v2",
