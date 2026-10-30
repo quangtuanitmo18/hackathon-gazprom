@@ -44,7 +44,7 @@ Compute p50/p90 on UTC timestamps with `sent_at >= qualified_at`. Report `eligib
 
 ## Quality definitions with bias controls
 
-- Primary independently judged actionable precision: accepted-worthy insights / all **sampled candidate insights** adjudicated blind to model; `needs_info` not automatic acceptance. Disclose confidence intervals, reviewer disagreements and sampling weights.
+- Primary independently judged **actionable precision**: useful emitted/eligible-for-send signals / all independently adjudicated *emitted or selected-for-send* signals in a stratified sample, including those with no product feedback. **Abstained/unsent** traffic is separately sampled to assess actionable recall and selection coverage, not placed in the precision denominator. Disclose confidence intervals, reviewer disagreements and sampling weights.
 - Product team observed acceptance: `accepted/(accepted+rejected+needs_info)` among reviewed after maturation; separately report `reviewed/sent` and fraction without response. Do **not** conflate this conditional ratio with model population precision.
 - Routing: `correct/(correct+wrong)` among verifiable routed items; additionally `auto_routed/eligible` to expose trivial "abstain all" strategies.
 - Recurrence: unique source-ticket keys per product/topic/window; multi-symptom one ticket counts once. Without trusted source coverage cannot claim total volume or rising trend; counts from available sample are explicitly lower bounds, not complete inference.
