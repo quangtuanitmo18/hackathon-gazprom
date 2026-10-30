@@ -19,6 +19,28 @@ const candidateSchema=z.object({
   signals:z.array(z.enum(["lexical_overlap","same_product","same_component","shared_error_code"])),
 }).strict().refine(x=>x.ticket_key_a!==x.ticket_key_b,{message:"invalid candidate pair"});
 
+// Candidate pair is a current snapshot hint, never a verified incident.
+const activitySchema=z.object({
+  ticket_key_a:z.string().min(1),
+  ticket_key_b:z.string().min(1),
+  created_at_a:z.iso.datetime({offset:true}),
+  created_at_b:z.iso.datetime({offset:true}),
+  as_of:z.iso.datetime({offset:true}),
+  window_hours:z.number().int().min(1).max(168),
+  recent_pattern:z.enum(["both_current","current_with_previous"]),
+  current_member_count:z.number().int().min(1).max(2),
+  previous_member_count:z.number().int().min(0).max(1),
+  rank:z.number().int().positive(),
+  signals:z.array(z.enum(["lexical_overlap","same_product","same_component","shared_error_code"])),
+  evidence_type:z.literal("lexical_candidate"),
+  coverage_status:z.literal("unknown_coverage"),
+  eligible_for_alert:z.literal(false),
+}).strict().refine(x=>x.ticket_key_a!==x.ticket_key_b,{message:"invalid early candidate pair"})
+  .refine(x=>x.current_member_count+x.previous_member_count===2 &&
+    (x.recent_pattern==="both_current"
+      ? x.current_member_count===2
+      : x.current_member_count===1),{message:"inconsistent source event-time buckets"});
+
 const approvalSchema=z.object({pair_id:z.string(),ticket_keys:z.tuple([z.string(),z.string()]),reviewer_ids:z.tuple([z.string(),z.string()])}).strict();
 const voteSchema=z.object({
   ticket_key_a:z.string().min(1).max(512),
@@ -39,7 +61,11 @@ export type ReviewProgress=z.infer<typeof progressSchema>;
 export type ReviewInput=z.infer<typeof voteSchema>;
 export type LeadInput=z.infer<typeof approveSchema>;
 export type ReviewCandidate=z.infer<typeof candidateSchema>;
-export type ReviewData={tickets:ReviewTicket[],reviews:ReviewProgress[],candidates:ReviewCandidate[]};
+export type UnverifiedActivity=z.infer<typeof activitySchema>;
+export type ReviewData={
+  tickets:ReviewTicket[],reviews:ReviewProgress[],candidates:ReviewCandidate[],
+  activity:UnverifiedActivity[],
+};
 export class ReviewBffError extends Error {
   constructor(public readonly status:number,message:string){super(message);}
 }
@@ -75,7 +101,7 @@ async function request<T>(
   config:BackendConfig,access:string,path:string,method:"GET"|"POST",parser:z.ZodType<T>,
   payload:unknown,transport:typeof fetch
 ):Promise<T>{
-  const allowed=new Set(["/internal/v1/review-tickets","/internal/v1/review-candidates","/internal/v1/reviews","/internal/v1/reviews/approve"]);
+  const allowed=new Set(["/internal/v1/review-tickets","/internal/v1/review-candidates","/internal/v1/unverified-activity","/internal/v1/reviews","/internal/v1/reviews/approve"]);
   const url=new URL(path,config.baseUrl);
   if(url.origin!==config.baseUrl || !allowed.has(url.pathname) || url.hash)
     throw new Error("review upstream path not allowlisted");
@@ -114,9 +140,10 @@ async function request<T>(
 export async function fetchReviewerData(
   config:BackendConfig,access:string,transport:typeof fetch=fetch
 ):Promise<ReviewData>{
-  const [reviews,candidates]=await Promise.all([
+  const [reviews,candidates,activity]=await Promise.all([
     request(config,access,"/internal/v1/reviews","GET",z.array(progressSchema),undefined,transport),
     request(config,access,"/internal/v1/review-candidates","GET",z.array(candidateSchema),undefined,transport),
+    request(config,access,"/internal/v1/unverified-activity","GET",z.array(activitySchema).max(30),undefined,transport),
   ]);
   const tickets:ReviewTicket[]=[];
   // Existing FastAPI exposes max 50 ticket evidence rows per request. Fetch
@@ -131,7 +158,21 @@ export async function fetchReviewerData(
     tickets.push(...page);
     if(page.length<50)break;
   }
-  return {tickets,reviews,candidates};
+  // Links to missing sanitized evidence must fail closed, not render a
+  // clickable pair with an absent/unreviewable side. Never silently discard
+  // partial pages or treat an upstream failure as "no early activity".
+  const evidenceKeys=new Set(tickets.map(t=>t.ticket_key));
+  if(evidenceKeys.size!==tickets.length)
+    throw new ReviewBffError(502,"duplicate reviewer evidence identity");
+  const seenPairs=new Set<string>();
+  for(const item of activity){
+    const canonical=JSON.stringify([item.ticket_key_a,item.ticket_key_b].sort());
+    if(seenPairs.has(canonical) || !evidenceKeys.has(item.ticket_key_a) ||
+       !evidenceKeys.has(item.ticket_key_b))
+      throw new ReviewBffError(502,"missing or duplicate early activity evidence");
+    seenPairs.add(canonical);
+  }
+  return {tickets,reviews,candidates,activity};
 }
 export function submitReviewerAction(
   config:BackendConfig,access:string,action:"vote"|"approve",body:unknown,transport:typeof fetch=fetch

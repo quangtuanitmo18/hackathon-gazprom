@@ -23,7 +23,15 @@ async function selectPair(page:Page) {
 test("actual Keycloak: reviewer A + reviewer B + independent lead can approve but not merge",async({browser})=>{
   const one=await signInAs(browser,"reviewer-a","ci-reviewer-A-2026-only");
   await expect(one.page.getByRole("button",{name:/Предложение 1/})).toBeVisible();
-  await one.page.getByRole("button",{name:/Предложение 1/}).click();
+  // Real Keycloak + PostgreSQL + BM25: event-time candidate shown as
+  // strictly unverified. Clicking selects sanitized evidence, not a vote.
+  const early=one.page.getByRole("button",{name:/Ранняя пара 1: открыть доказательства/});
+  await expect(early).toBeVisible();
+  await expect(early).toContainText("Не инцидент");
+  await expect(early).toContainText("покрытие истории не подтверждено");
+  await early.click();
+  await expect(one.page.locator(".review-ticket").filter({hasText:"RU-A"})).toBeVisible();
+  await expect(one.page.locator(".review-ticket").filter({hasText:"RU-B"})).toBeVisible();
   await expect(one.page.getByRole("combobox",{name:"Первое обращение"})).toHaveValue(/synthetic/);
   await expect(one.page.getByRole("combobox",{name:"Второе обращение"})).toHaveValue(/synthetic/);
   await one.page.getByText("Одна техническая проблема",{exact:true}).click();
@@ -41,6 +49,13 @@ test("actual Keycloak: reviewer A + reviewer B + independent lead can approve bu
   expect(csrf.status()).toBe(403);
   await one.page.getByRole("button",{name:"Отправить независимую оценку"}).click();
   await expect(one.page.locator(".failure-panel[role=alert]")).toContainText("HTTP 409");
+  const reviewData=await one.page.evaluate(async()=>await (await fetch("/api/review",{cache:"no-store"})).json());
+  expect(reviewData.activity).toHaveLength(1);
+  expect(reviewData.activity[0].evidence_type).toBe("lexical_candidate");
+  expect(reviewData.activity[0].coverage_status).toBe("unknown_coverage");
+  expect(reviewData.activity[0].eligible_for_alert).toBe(false);
+  expect(reviewData.activity[0]).not.toHaveProperty("confidence");
+  expect(JSON.stringify(reviewData)).not.toContain(process.env.PRODUCTPULSE_INTERNAL_TOKEN!);
   const session=await one.page.evaluate(async()=>await (await fetch("/api/auth/session")).json());
   expect(JSON.stringify(session)).not.toContain("reviewerAccessToken");
   expect(JSON.stringify(session)).not.toContain("access_token");
