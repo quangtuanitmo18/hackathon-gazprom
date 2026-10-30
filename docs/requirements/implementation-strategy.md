@@ -36,3 +36,8 @@
 - **Submission:** пункты 1–4,6 <=15k символов, пункт 5 .md, 10 слайдов, русские формулировки, 6/6 по критериям и реалистичные unknowns.
 - **Optional software:** offline unit + integration, privacy and prompt-injection tests; replay temporal correctness, real model eval only when available and permitted; no external egress.
 - Keep `main` untouched and no merges without independent human review.
+
+
+## Обязательная поправка об охвате (PDF p.2 vs p.6)
+
+Решение конкурсного кейса рассчитано на **множество цифровых продуктов**; `Webneft` — один из примеров для объяснения и проверки. Для каждого подключённого продукта нужен доверенный `product_id`, независимая версия taxonomy, отдельные source authorization, per-product retrieval и обновляемый `product→team` registry. Отсутствие конфигурации блокирует auto-send; универсальные issue intent общие, отраслевые journey/symptom codes — **нет**. Базовые KPI и ~40 support personnel относятся ко всему контуру, а не к Webneft как отдельному продукту. Прототип остаётся опциональным.
