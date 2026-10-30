@@ -1,0 +1,46 @@
+{
+  "created_utc": "2026-10-30T10:19:37.756658+00:00",
+  "task": "static_duplicate_link_retrieval",
+  "scope": "GitBugs Hadoop, not Gazprom Neft, not an online time replay",
+  "source_commit": "eadf2d6794990a1aaa26d0ae15391f29f8969301",
+  "source_reports_sha256": "a04ac6238c39afaf97b9ffb2a416c1318dd85672a31e9a6dd74f64e199b77358",
+  "source_duplicate_links_sha256": "5d9978c8aaeb65fcaf2386fdd796a9023931dd4b66e3c5751f111db6624b6dc0",
+  "documents": 2503,
+  "source_labeled_undirected_positive_pairs": 66,
+  "query_ids_with_positive": 129,
+  "model": "TF-IDF word uni/bi-gram cosine retrieval; no supervised pair training",
+  "max_features": 60000,
+  "vocabulary_size": 60000,
+  "python": "3.11.17",
+  "scikit_learn": "1.9.1",
+  "fit_seconds": 0.68605,
+  "search_seconds": 0.27198,
+  "top_k": [
+    1,
+    5,
+    10
+  ],
+  "metrics": {
+    "queries_total": 129,
+    "queries_evaluated": 129,
+    "queries_without_positive": 0,
+    "queries_without_ranking": 0,
+    "queries_with_unavailable_positive": 0,
+    "hit_at_1": 0.4186046511627907,
+    "recall_at_1": 0.41472868217054265,
+    "mrr_at_1": 0.4186046511627907,
+    "hit_at_5": 0.6201550387596899,
+    "recall_at_5": 0.6162790697674418,
+    "mrr_at_5": 0.4935400516795866,
+    "hit_at_10": 0.6976744186046512,
+    "recall_at_10": 0.689922480620155,
+    "mrr_at_10": 0.50421742340347
+  },
+  "claims_limitations": [
+    "Unlinked reports are not proven negatives.",
+    "Metric denominators include only queries with source-labeled positives.",
+    "Source duplicate link is a proxy for same incident, not a root-cause label.",
+    "Corpus-wide unsupervised TF-IDF fit is static/transductive; not online/chronological.",
+    "No business workload reduction or Gazprom Neft effectiveness inferred."
+  ]
+}
