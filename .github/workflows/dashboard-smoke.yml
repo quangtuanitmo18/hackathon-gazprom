@@ -89,7 +89,7 @@ jobs:
           PY
       - name: Install OSS UI dependencies
         working-directory: apps/web
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Run front-end unit tests
         working-directory: apps/web
         run: npm test
