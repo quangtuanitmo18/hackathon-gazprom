@@ -1,7 +1,7 @@
 # ProductPulse AI — System Design Spec
 
 **Date:** 2026-10-30  
-**Status:** PROPOSED — needs team approval at 2026-10-31 architecture review  
+**Status:** HYBRID ARCHITECTURE SELECTED by repository owner (ADR-001, 2026-10-30); detailed specification still awaits team review on 2026-10-31  
 **Business:** Intelligence Cup 2026, кейс «Искусственный интеллект»  
 **Audience:** разработчики MVP, ML/AI-инженеры, product/business lead, наставники
 
@@ -53,9 +53,9 @@ G8. Reproducible experiment + честный финансовый сценари
 |---|---|---|
 | A. LLM-only triage | Быстрый proof of concept, мало отдельных моделей | Стоимость per-ticket, нестабильность, hallucinations, трудная калибровка |
 | B. Rules/ML-only | Дешево, детерминированно, объяснимо | Сложный свободный текст, summary/insights менее гибкие |
-| C. Hybrid agent-assisted (recommended, pending approval) | ML + metadata для core, LLM для evidence-based recommendations; измеримость и controls | Больше интеграции и ответственности за контракты |
+| C. Hybrid agent-assisted (owner-selected, team review pending) | ML + metadata для core, LLM для evidence-based recommendations; измеримость и controls | Больше интеграции и ответственности за контракты |
 
-**Proposed choice:** C, с жёсткой границей: LLM не источник числовой статистики, прав доступа или подтверждённой причины дефекта. Решение до 31.10 считается предварительным.
+**Owner-selected direction:** C — Hybrid AI Agent, documented in [ADR-001](../../architecture/decisions/ADR-001-hybrid-ai-agent.md). LLM не источник числовой статистики, прав доступа или подтверждённой причины дефекта. Это выбор архитектурного подхода владельцем репозитория, а не окончательное согласование всех деталей с командой/заказчиком.
 
 ## 7. Logical architecture
 
@@ -122,6 +122,6 @@ Pilot path: read-only historical → shadow mode → team-approved actions → l
 
 ## 13. Open decisions (team and mentors)
 
-D1: source ITSM and its actual workflow; D2: dataset fields/quality and privacy approval; D3: what exactly counts as same incident; D4: primary business metric; D5: permitted models/deployment; D6: who approves issue creation; D7: evaluation resources and participation of real support specialists; D8: scope/technology approved by the team.
+D1: source ITSM and its actual workflow; D2: dataset fields/quality and privacy approval; D3: what exactly counts as same incident; D4: primary business metric; D5: permitted models/deployment; D6: who approves issue creation; D7: evaluation resources and participation of real support specialists; D8: детальный scope/stack и критерии готовности согласованы командой. Направление Hybrid выбрано владельцем репозитория в ADR-001, окончательная командная проверка ещё предстоит.
 
-See [assumptions](../../requirements/requirements-and-assumptions.md) and [31 Oct review](../../project/review-2026-10-31.md). Until decisions are recorded, this document is a **proposal**, not an approved specification.
+See [assumptions](../../requirements/requirements-and-assumptions.md) and [31 Oct review](../../project/review-2026-10-31.md). Until the remaining decisions are recorded and the team signs off, this document is a **proposal with a selected architectural direction**, not an approved implementation specification.
