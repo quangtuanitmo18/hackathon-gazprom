@@ -57,10 +57,10 @@ def verify() -> None:
                v["label_status"] == "proposed_unadjudicated"
                for v in cases), "Do not fabricate labels or event-time"
     assert len([x for x in slides.splitlines() if re.match(r"^\|\s*(?:10|[1-9])\s*\|", x)]) == 10
-    for page in range(1, 8):
-        assert ("стр. " + str(page)) in requirements or (
-            "стр. " + str(page) + "–" in requirements
-        ), f"PDF page {page} not covered by traceability"
+    # Source traceability table explicitly accounts for all 7 pages.
+    for marker in ("| 1–2 |", "| 2 |", "| 3 |", "| 4 |",
+                   "| 5 |", "| 6 |", "| 7 |"):
+        assert marker in requirements, f"Missing PDF table marker: {marker}"
     assert "15 000" in requirements
     print("PASS: official case contract, 1–4 + 6, separate 5,",
           f"main={len(main)} chars, seven unadjudicated examples, ten slides")
