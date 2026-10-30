@@ -172,6 +172,12 @@ class ProblemRegistry:
                     (key, self._tickets[key].created_at)
                     for key in problem.ticket_keys
                 ),
+                source_systems=tuple(sorted({
+                    self._tickets[key].source_system for key in problem.ticket_keys
+                })),
+                # NO inferred completeness. An audited per-source coverage
+                # manifest is a separate future ingestion contract.
+                coverage=(),
             )
             for problem in self.list_active()
             if len(problem.ticket_keys) >= 2
