@@ -53,8 +53,16 @@ export function requireActiveReviewerAuth(
 
 /** Auth.js cookie blocks CSRF, but additionally reject cross-origin mutations. */
 export function requireSameOriginPost(origin:string|null,expectedOrigin:string):void {
-  if(!origin||new URL(origin).origin!==new URL(expectedOrigin).origin||origin!==new URL(expectedOrigin).origin)
+  // A malformed Origin is a FORBIDDEN request, never an unhandled URL error.
+  if(!origin)throw new ReviewBffError(403,"invalid request origin");
+  try{
+    const expected=new URL(expectedOrigin).origin;
+    const incoming=new URL(origin).origin;
+    if(origin!==incoming||incoming!==expected)
+      throw new ReviewBffError(403,"invalid request origin");
+  }catch{
     throw new ReviewBffError(403,"invalid request origin");
+  }
 }
 
 async function request<T>(
