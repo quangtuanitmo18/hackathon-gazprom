@@ -1,0 +1,97 @@
+{
+  "timestamp_utc": "2026-10-30T10:31:40.800745+00:00",
+  "source": "GitBugs Hadoop original CSVs",
+  "source_commit": "eadf2d6794990a1aaa26d0ae15391f29f8969301",
+  "source_checksums": {
+    "reports.csv": "a04ac6238c39afaf97b9ffb2a416c1318dd85672a31e9a6dd74f64e199b77358",
+    "links.csv": "5d9978c8aaeb65fcaf2386fdd796a9023931dd4b66e3c5751f111db6624b6dc0"
+  },
+  "total_reports": 2503,
+  "positive_pairs": 66,
+  "source_labeled_query_ids": 129,
+  "evaluation": "STATIC corpus-wide, leave-one-out, positive-link only",
+  "k_values": [
+    1,
+    5,
+    10
+  ],
+  "python": "3.11.17",
+  "environment": "GitHub Actions Ubuntu runner, CPU",
+  "limits": [
+    "Queries selected for known positive duplicate links, not all support tickets.",
+    "Unlinked pairs have unknown labels; no precision/F1 measured.",
+    "No final issue resolution, status, duplicate label or future metadata used as retrieval features.",
+    "Unsupervised static retrieval, not an online/chronological replay.",
+    "No claim of company-specific performance, reduction in tickets or ROI.",
+    "Dense transformer truncates long report text at max_seq_length; lexical methods see full text.",
+    "Hugging Face model revision is recorded; dataset positive links not used to tune RRF."
+  ],
+  "models": {
+    "dense": {
+      "model_id": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+      "revision": "e8f8c211226b894fcb81acc59f3b34ba3efd5f42",
+      "license": "Apache-2.0 (model card; verify before commercial deployment)",
+      "embedding_dimensions": 384,
+      "model_max_seq_length_tokens": 128,
+      "model_load_seconds": 7.05554,
+      "encode_all_seconds": 70.30265,
+      "query_search_seconds": 0.0525,
+      "metrics": {
+        "queries_total": 129,
+        "queries_evaluated": 129,
+        "queries_without_positive": 0,
+        "queries_without_ranking": 0,
+        "queries_with_unavailable_positive": 0,
+        "hit_at_1": 0.40310077519379844,
+        "recall_at_1": 0.3953488372093023,
+        "mrr_at_1": 0.40310077519379844,
+        "hit_at_5": 0.6511627906976745,
+        "recall_at_5": 0.6472868217054264,
+        "mrr_at_5": 0.4993540051679588,
+        "hit_at_10": 0.689922480620155,
+        "recall_at_10": 0.689922480620155,
+        "mrr_at_10": 0.5045527254829582
+      }
+    },
+    "bm25": {
+      "model": "BM25 k1=1.5,b=0.75",
+      "metrics": {
+        "queries_total": 129,
+        "queries_evaluated": 129,
+        "queries_without_positive": 0,
+        "queries_without_ranking": 0,
+        "queries_with_unavailable_positive": 0,
+        "hit_at_1": 0.3798449612403101,
+        "recall_at_1": 0.37209302325581395,
+        "mrr_at_1": 0.3798449612403101,
+        "hit_at_5": 0.6589147286821705,
+        "recall_at_5": 0.6511627906976745,
+        "mrr_at_5": 0.47739018087855306,
+        "hit_at_10": 0.7131782945736435,
+        "recall_at_10": 0.7054263565891473,
+        "mrr_at_10": 0.48428694475206113
+      },
+      "index_seconds": 0.10923,
+      "search_seconds": 1.66322
+    },
+    "hybrid_rrf": {
+      "model": "BM25 + multilingual dense RRF, rank_constant=60, pool=100, not tuned",
+      "metrics": {
+        "queries_total": 129,
+        "queries_evaluated": 129,
+        "queries_without_positive": 0,
+        "queries_without_ranking": 0,
+        "queries_with_unavailable_positive": 0,
+        "hit_at_1": 0.4186046511627907,
+        "recall_at_1": 0.4108527131782946,
+        "mrr_at_1": 0.4186046511627907,
+        "hit_at_5": 0.6821705426356589,
+        "recall_at_5": 0.6782945736434108,
+        "mrr_at_5": 0.5239018087855298,
+        "hit_at_10": 0.7286821705426356,
+        "recall_at_10": 0.7286821705426356,
+        "mrr_at_10": 0.5305309462286207
+      }
+    }
+  }
+}
