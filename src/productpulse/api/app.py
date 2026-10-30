@@ -104,6 +104,9 @@ class TrendOut(BaseModel):
     delta: int
     current_ticket_keys: tuple[str, ...]
     previous_ticket_keys: tuple[str, ...]
+    coverage_status: Literal["complete", "unknown_coverage"]
+    observed_pattern: Literal["volume_increase", "new_activity", "monitor"]
+    eligible_for_alert: bool
 
 
 class ReviewInput(BaseModel):
