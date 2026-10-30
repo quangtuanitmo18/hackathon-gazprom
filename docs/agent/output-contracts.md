@@ -1,8 +1,10 @@
 # AI Agent V2 — строгие выходные контракты (proposal, не действующие API)
 
-**Primary source:** case PDF стр. 2–4, 6; **Architecture chosen:** Hybrid C. До внедрения проверить фактический интерфейс и точное название модели «Qwen 3.8». Классификатор получает **только очищенный внутренний контекст**, не получает прав на выдачу паролей, статистических counts и внешнюю сеть.
+**Primary source:** case PDF стр. 2–4, 6; **сфера охвата — многие цифровые продукты**, Webneft только один набор иллюстраций; **Architecture chosen:** Hybrid C. До внедрения проверить фактический интерфейс и точное название модели «Qwen 3.8». Классификатор получает **только очищенный внутренний контекст**, не получает прав на выдачу паролей, статистических counts и внешнюю сеть.
 
 ## Contract 1 — `RequestAnalysisV1` (model suggestion)
+
+`product_id` and `taxonomy_version` are **trusted request envelope metadata, not model-generated output**. The backend must validate the product mapping and taxonomy selection before presenting the allowlist to Qwen.
 
 ```json
 {
@@ -21,9 +23,9 @@
 ```
 
 Allowed values:
-- `business_journey`: `contract_onboarding`, `vehicle_management`, `shipment_operation`, `electronic_queue_booking`, `account_access`, `other`, `unknown`;
+- `business_journey`: **код из утверждённого для данного `product_id` справочника** или `unknown`; Webneft example codes: `contract_onboarding`, `vehicle_management`, `shipment_operation`, `electronic_queue_booking`, `account_access`. Эти коды **не** являются глобальным enum для всех цифровых продуктов;
 - `request_intent`: `bug_report`, `question`, `feature_request`, `service_request`, `unknown`;
-- `symptom_codes`: allowlisted taxonomy, empty when unknown; never invent a new database/API symptom.
+- `symptom_codes`: allowlisted taxonomy **для доверенного `product_id + taxonomy_version`**, empty when unknown; never invent a new database/API symptom.
 - `relation_type`: `same_problem_candidate`, `related_topic_only`, `unrelated`, `insufficient_evidence`. **No** `same_incident_confirmed`.
 - `root_cause_status`: literal `unknown`; hypotheses, if separately allowed in an editorial description, are not facts. No `root_cause`, `owner_team_id`, `incident_id`, numerical `confidence` fields.
 - `recommended_action`: `investigate`, `review_ux`, `answer_faq`, `route_service`, `none`. It's **suggested**, backend applies policy.
@@ -79,9 +81,9 @@ Allowed values:
 ## Boundaries and validation gates
 
 1. Model JSON parsed with strict schema (`extra=forbid`, enum, size/time budgets, unique evidence aliases, no duplicate JSON keys); unexpected JSON/executable markup/embedded instruction rejected.
-2. Trusted envelope gives `tenant_scope`, exact allowed E1..En→source mapping; IDs in the output are validated by backend. Qwen never self-grants access.
+2. Trusted envelope gives `tenant_scope`, **backend-authenticated product_id, product-specific taxonomy_version and allowed_journey/allowed_symptom code lists**, exact allowed E1..En→source mapping; IDs in the output are validated by backend. Qwen never self-grants access.
 3. Time windows are half-open UTC intervals `[start,end)`; if `source_created_at` absent, don't invent it. `ingested_at` is recorded by our service on actual observation, not filled from PDF.
-4. Independent `ProductSignalV1` aggregation with verified source scope, dedup, watermark and exact counts. Failure to retrieve one data page is **unknown coverage**, not an empty success.
+4. **Cross-product safety:** retrieval and aggregation are partitioned by `scope_id + product_id` by default; an unconfigured product/taxonomy/owner requires abstention/human triage. Webneft ontology must never be applied to unrelated digital products. Independent `ProductSignalV1` aggregation with verified source scope, dedup, watermark and exact counts. Failure to retrieve one data page is **unknown coverage**, not an empty success.
 5. If user asks to reveal login/password/OTP or modify a shipment/contact record: refuse as automated AI action and route to existing authorized support; **no autonomous business mutation**.
 6. Product routing and policy controls are checked by server, not a string returned by LLM. Audit `model_version`, `taxonomy_version`, `policy_version` and event timestamps without leaking PII.
 7. Signed, authorized product-team feedback alone changes accepted/rejected/needs_info state. LLM does not cast human votes or assert product improvements completed.
