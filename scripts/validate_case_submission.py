@@ -180,6 +180,26 @@ def verify() -> None:
     assert "не" in main and "1 641 322" in main
     print("PASS: three finance scenarios independently recalculated and cross-checked "
           "against main submission, KPI and release documentation")
+    # Contest example #5 is only ONE source narrative. The three additional
+    # ticket IDs must remain visibly synthetic, not invented Webneft facts.
+    business_story = read("docs/case-studies/webneft-synthetic-product-insight.md")
+    slide_storyboard = read("submissions/presentation-outline.ru.md")
+    blocks = re.findall(r"```json\s*([\s\S]*?)```", business_story)
+    assert len(blocks) == 1, "Expected one demonstrative insight JSON"
+    insight = json.loads(blocks[0])
+    assert insight["synthetic"] is True
+    assert insight["product_id"] == "webneft"
+    assert insight["observed_unique_ticket_count"] == len(set(insight["evidence_refs"])) == 3
+    assert all(ref.startswith("SYN-QUEUE-") for ref in insight["evidence_refs"])
+    assert insight["coverage_status"] == "unknown_coverage"
+    assert insight["root_cause_status"] == "unknown"
+    assert insight["trend_status"] == "not_assessable"
+    assert insight["delivery_status"] == "draft_not_sent"
+    assert insight["feedback_status"] == "pending"
+    assert "синтетических" in slide_storyboard.lower()
+    assert "Webneft" in slide_storyboard and "10 слайдов" in slide_storyboard
+    print("PASS: synthetic end-to-end insight has exactly 3 invented IDs, "
+          "no real recurrence/causal/delivery claims")
     print("PASS: official case contract, 1–4 + 6, separate 5,",
           f"main={len(main)} chars, seven unadjudicated examples, ten slides")
 
