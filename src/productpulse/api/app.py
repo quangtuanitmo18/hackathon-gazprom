@@ -16,6 +16,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import create_engine
 
 from productpulse.data.canonical import CanonicalTicketV1
+from productpulse.api.reviewer_auth import ReviewerJWTVerifier, ReviewTokenError, ReviewerPrincipal
+from productpulse.incident.annotation import PairLabel
 from productpulse.storage.repository import PersistentProblemRegistry
 
 
@@ -44,8 +46,44 @@ class AuditOut(BaseModel):
     revoked_pair_ids: tuple[str, ...]
 
 
+
+class ReviewInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ticket_key_a: str = Field(min_length=1, max_length=512)
+    ticket_key_b: str = Field(min_length=1, max_length=512)
+    label: PairLabel
+    rationale: str = Field(min_length=3, max_length=3000)
+    operation_key: str = Field(min_length=1, max_length=160)
+
+
+class LeadApprovalInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ticket_key_a: str = Field(min_length=1, max_length=512)
+    ticket_key_b: str = Field(min_length=1, max_length=512)
+    reason: str = Field(min_length=3, max_length=3000)
+    operation_key: str = Field(min_length=1, max_length=160)
+
+
+class ReviewProgressOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    pair_id: str
+    status: Literal[
+        "awaiting_first_review", "awaiting_second_review", "ready_for_lead",
+        "disputed", "uncertain", "classified",
+    ]
+    reviewer_ids: tuple[str, ...]
+
+
+class PairApprovalOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    pair_id: str
+    ticket_keys: tuple[str, str]
+    reviewer_ids: tuple[str, str]
+
+
 def create_app(
     store: PersistentProblemRegistry, scope_id: str, internal_token: str,
+    reviewer_verifier: ReviewerJWTVerifier | None = None,
 ) -> FastAPI:
     """Explicit trusted dependency injection; user requests cannot set scope."""
     if not isinstance(scope_id, str) or not scope_id.strip() or len(scope_id.strip()) > 128:
@@ -116,6 +154,75 @@ def create_app(
     def audit():
         return list(store.audit(scope_id))
 
+
+    def authenticated_reviewer(
+        authorization: str | None, required_role: str,
+    ) -> ReviewerPrincipal:
+        if reviewer_verifier is None:
+            raise HTTPException(status_code=503, detail="Reviewer identity provider not configured")
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="OIDC Bearer token required")
+        try:
+            return reviewer_verifier.verify(
+                authorization[len("Bearer "):],
+                expected_scope=scope_id, required_role=required_role,
+            )
+        except ReviewTokenError as exc:
+            raise HTTPException(status_code=401, detail="Invalid reviewer identity or permissions") from exc
+
+    def need_reviewer(authorization: str | None = Header(default=None)):
+        return authenticated_reviewer(authorization, "productpulse_reviewer")
+
+    def need_lead(authorization: str | None = Header(default=None)):
+        return authenticated_reviewer(authorization, "productpulse_review_lead")
+
+    @app.get(
+        "/internal/v1/reviews",
+        response_model=list[ReviewProgressOut],
+        dependencies=[Depends(require_internal)],
+    )
+    def review_queue(principal: ReviewerPrincipal = Depends(need_reviewer)):
+        return [asdict(v) for v in store.read(scope_id, lambda r: r.review_statuses())]
+
+    @app.post(
+        "/internal/v1/reviews",
+        status_code=201,
+        response_model=ReviewProgressOut,
+        dependencies=[Depends(require_internal)],
+    )
+    def submit_review(
+        payload: ReviewInput, principal: ReviewerPrincipal = Depends(need_reviewer),
+    ):
+        try:
+            result = store.transact(scope_id, lambda r: r.submit_review(
+                payload.ticket_key_a, payload.ticket_key_b,
+                reviewer_id=principal.reviewer_id,
+                label=payload.label, rationale=payload.rationale,
+                operation_key=payload.operation_key,
+            ))
+            return asdict(result)
+        except (ValueError, KeyError) as exc:
+            raise HTTPException(status_code=409, detail="Review operation conflict or missing registered pair") from exc
+
+    @app.post(
+        "/internal/v1/reviews/approve",
+        status_code=201,
+        response_model=PairApprovalOut,
+        dependencies=[Depends(require_internal)],
+    )
+    def lead_approve(
+        payload: LeadApprovalInput, principal: ReviewerPrincipal = Depends(need_lead),
+    ):
+        try:
+            result = store.transact(scope_id, lambda r: r.approve_reviewed_pair(
+                payload.ticket_key_a, payload.ticket_key_b,
+                actor=principal.reviewer_id,
+                reason=payload.reason, operation_key=payload.operation_key,
+            ))
+            return asdict(result)
+        except (ValueError, KeyError) as exc:
+            raise HTTPException(status_code=409, detail="Approval conflict or independent review incomplete") from exc
+
     return app
 
 
@@ -125,4 +232,19 @@ def app_from_env() -> FastAPI:
     scope_id = os.environ["PRODUCTPULSE_SCOPE_ID"]
     internal_token = os.environ["PRODUCTPULSE_INTERNAL_TOKEN"]
     engine = create_engine(db_url, pool_pre_ping=True)
-    return create_app(PersistentProblemRegistry(engine), scope_id, internal_token)
+    oidc_fields = (
+        os.getenv("PRODUCTPULSE_OIDC_ISSUER"),
+        os.getenv("PRODUCTPULSE_OIDC_AUDIENCE"),
+        os.getenv("PRODUCTPULSE_OIDC_JWKS_URL"),
+    )
+    verifier = None
+    if any(oidc_fields):
+        if not all(oidc_fields):
+            raise ValueError("all OIDC issuer, audience and JWKS URL settings are required")
+        verifier = ReviewerJWTVerifier(
+            issuer=oidc_fields[0], audience=oidc_fields[1], jwks_url=oidc_fields[2]
+        )
+    return create_app(
+        PersistentProblemRegistry(engine), scope_id, internal_token,
+        reviewer_verifier=verifier,
+    )
