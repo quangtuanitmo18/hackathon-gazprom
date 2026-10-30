@@ -1,0 +1,69 @@
+{
+  "verified_at_utc": "2026-10-30T09:55:42.653419+00:00",
+  "source": "original publisher CSVs, not mock rows",
+  "zenodo": {
+    "train": {
+      "count": 1572,
+      "labels": {
+        "Fileservice": 546,
+        "Support general": 541,
+        "Software": 164,
+        "EOL": 45,
+        "O365": 127,
+        "Active Directory": 84,
+        "Computer-Services": 65
+      },
+      "source_split": "train",
+      "schema": {
+        "X": [
+          "id",
+          "text"
+        ],
+        "y": [
+          "id",
+          "category_truth"
+        ]
+      }
+    },
+    "test": {
+      "count": 657,
+      "labels": {
+        "Support general": 221,
+        "Fileservice": 138,
+        "Software": 58,
+        "EOL": 58,
+        "Computer-Services": 41,
+        "Active Directory": 49,
+        "O365": 92
+      },
+      "source_split": "test",
+      "schema": {
+        "X": [
+          "id",
+          "text"
+        ],
+        "y": [
+          "id",
+          "category_truth"
+        ]
+      }
+    }
+  },
+  "mendeley": {
+    "issue_count": 66691,
+    "projects_nonnull": 66691,
+    "created_at_nonnull": 66691,
+    "timestamp_timezone_note": "Source issue_created retained as raw string, timezone semantics unknown",
+    "text_available_in_issues_csv": false,
+    "history_events": 257508,
+    "history_orphan_issueids": 0,
+    "utterance_rows": 30104,
+    "utterances_orphan_issueids": 0,
+    "utterance_author_roles": {
+      "reporter": 5700,
+      "others": 11584,
+      "assignee": 12820
+    }
+  },
+  "success": true
+}

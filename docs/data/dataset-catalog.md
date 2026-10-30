@@ -1,6 +1,6 @@
 # Dataset catalog — 30.10.2026
 
-**Статус:** SOURCE DISCOVERY (verified against public dataset cards, **not** downloaded, profiled, or benchmarked yet).
+**Статус:** ORIGINAL SOURCE FILES DOWNLOADED AND VERIFIED ON GITHUB ACTIONS (2026-10-30). See [verification report](source-verification-report.md). ML benchmark has NOT been run yet.
 
 Пока «Газпром нефть» не предоставила датасет, берём **два независимых публичных реальных корпуса** для проверки разных частей решения, плюс небольшие вручную размеченные русскоязычные контрпримеры для тестов. Не выдаём их метрики за качество на данных компании.
 
@@ -11,7 +11,7 @@
 - **Processed HF mirror:** https://huggingface.co/datasets/tasksource/it-support-tickets
 - **License:** CC BY 4.0 (attribution required).
 - **Reported size:** 2,229 actual IT support tickets manually classified by three IT professionals into seven categories.
-- **Columns:** text, label in the processed mirror; original X_train/X_test/y_train/y_test preserved.
+- **Original columns VERIFIED:** X files `id,text`; y files `id,category_truth`; 1,572 train + 657 test. All four published MD5 checksums match. [Original CSV mirror](../../datasets/public/zenodo-7648117/README.md).
 - **Languages:** mostly English, German, Portuguese and Spanish; NOT a Russian benchmark.
 - **Role:** baseline classification (TF-IDF + logistic regression, multilingual encoder comparison), evaluate Macro F1 on ORIGINAL holdout. Keep label mapping explicit; hardware/software/access categories do NOT equal our requested business taxonomy incident/how_to/feature.
 - **Limitations:** no incident-link ground truth, no timestamps for replay, no reliable product-team routing labels.
@@ -24,10 +24,10 @@
 - **License:** CC BY 4.0 (attribution required).
 - **Source:** anonymized real helpdesk records from an international software company.
 - **Files (original):** issues.csv, issues_change_history.csv, issues_snapshot.csv, sample_utterances.csv, feature documentation.
-- **Fields reported:** issue/project/category/priority, assignee, start/resolution timestamps and status/assignment histories.
+- **Original fields VERIFIED:** `issues.csv` has `id`, `issue_proj`, `issue_created`, `issue_type`, priority/assignee/status/workflow data. The raw issues table is metadata-only, **not** input ticket text. 66,691 issues; 257,508 history events; 30,104 utterances. Mendeley originals stored in short-lived Actions artifact, not git.
 - **Processed HF caveat:** reporter_messages view has **357 text-bearing issues**; its `issue_type` of Ticket/HD Service/Deployment is NOT seven-category classification ground truth.
 - **Role:** ingestion mapping, time-based replay/process analytics, test team-assignment / operational metrics **when fields support them**.
-- **Limitations:** this does not prove incident-duplicate links or whether first dev notification time is captured; inspect fields before choosing labels or TTAI comparison.
+- **Limitations:** no verified same-incident labels or first-dev-notification timestamps. Source timezones not confirmed; preserve timestamps raw before replay. 0 orphan issue references found on tested history and utterances.
 
 ## Dataset C — controlled Russian hard-negative fixtures
 
@@ -50,9 +50,9 @@ Neither dataset A nor B is confirmed to contain a gold `same_incident` label. **
 
 ## Data governance and reproducibility
 
-- No raw downloads, real message bodies, names, email addresses or secrets in public GitHub.
+- The **publisher-redacted, checksum-verified Zenodo CSVs** are mirrored in `datasets/public/zenodo-7648117/` with CC BY attribution, at the user's request. No Mendeley original free text/history, company data, secrets or private tickets are committed to git.
 - Explicit CC BY attribution in docs/results; check terms before use.
-- Download to gitignored local `data/raw/` only after design approval; hash the source and record record/version.
+- Full original downloads use gitignored `data/raw/` in the GitHub Actions runner; source files are offered as short-lived artifacts; persist SHA-256/MD5/schema/count evidence in `docs/data/`.
 - Canonical fields: source, original_id, created_at, product_id, subject, text_redacted, label, split, provenance.
 - Preserve original labels and split; avoid mixing label semantics across sources.
 - Inspect duplicates and group leakage before train/dev/test.

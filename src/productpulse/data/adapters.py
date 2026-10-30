@@ -6,6 +6,7 @@ consume parsed rows; file decoding and controlled access happen upstream.
 """
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from math import isfinite
 from typing import Any
 
@@ -51,9 +52,8 @@ def parse_zenodo_split(
 ) -> list[CanonicalTicket]:
     """Join Zenodo X/y on source id, preserving original X order and split.
 
-    This v0 adapter uses explicit normalized keys: id/text and id/label.
-    A source-schema mapping must be inspected against the actual CSV headers
-    before claiming compatibility with the original downloadable files.
+    Original Zenodo v2 uses id/text for X and id/category_truth for y.
+    The normalized id/label alias remains supported for existing fixtures.
     """
     if split not in {"train", "test"}:
         raise ValueError("split must be the author-provided train or test")
@@ -62,12 +62,16 @@ def parse_zenodo_split(
     for row in x_rows:
         _require_fields(row, {"text"}, "Zenodo X")
     for row in y_rows:
-        _require_fields(row, {"label"}, "Zenodo y")
+        if "category_truth" not in row and "label" not in row:
+            raise ValueError("Zenodo y: missing required fields: category_truth or label")
+        if "category_truth" in row and "label" in row and str(row["category_truth"]) != str(row["label"]):
+            raise ValueError("Zenodo y: conflicting category_truth and label")
     if x_by_id.keys() != y_by_id.keys():
         raise ValueError("Zenodo X/y unmatched source IDs; refusing positional alignment")
     records = []
     for identifier, x in x_by_id.items():
-        label = y_by_id[identifier]["label"]
+        y_row = y_by_id[identifier]
+        label = y_row["category_truth"] if "category_truth" in y_row else y_row["label"]
         if label is None or (isinstance(label, float) and not isfinite(label)) or not str(label).strip():
             raise ValueError(f"Zenodo y: missing or invalid label for source ID {identifier}")
         records.append(
@@ -103,3 +107,35 @@ def parse_mendeley_rows(rows: list[dict]) -> list[CanonicalTicket]:
             )
         )
     return records
+
+
+@dataclass(frozen=True)
+class MendeleyIssue:
+    """Metadata-only issue from original Mendeley v3 issues.csv.
+
+    Dates stay as raw strings until source timezone semantics are verified.
+    Not a text-bearing ticket; resolution is not a classification target.
+    """
+
+    source_id: str
+    project_id: str | None
+    created_at_raw: str | None
+    issue_type: str | None
+
+
+def parse_mendeley_issues(rows: list[dict]) -> list[MendeleyIssue]:
+    """Parse original issues.csv, never manufacture text from process metadata."""
+    indexed = _index_unique(rows, "Mendeley issues.csv", id_column="id")
+    result: list[MendeleyIssue] = []
+    for identifier, row in indexed.items():
+        _require_fields(row, {"issue_created", "issue_proj", "issue_type"}, "Mendeley issues.csv")
+        proj = row["issue_proj"]
+        created = row["issue_created"]
+        issue_type = row["issue_type"]
+        result.append(MendeleyIssue(
+            source_id=identifier,
+            project_id=str(proj).strip() if proj is not None and str(proj).strip() else None,
+            created_at_raw=str(created).strip() if created is not None and str(created).strip() else None,
+            issue_type=str(issue_type).strip() if issue_type is not None and str(issue_type).strip() else None,
+        ))
+    return result

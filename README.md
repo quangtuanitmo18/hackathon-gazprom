@@ -30,6 +30,7 @@
 | [Data contracts](docs/architecture/data-contracts.md) | Сущности, инварианты, API/события |
 | [Evaluation protocol](docs/evaluation/experiment-protocol.md) | Как получать реальные измерения |
 | [Public dataset catalog](docs/data/dataset-catalog.md) | Два реальных открытых источника и ограничения лицензий |
+| [Original-source verification](docs/data/source-verification-report.md) | Скачанные издательские CSV, MD5/SHA-256, реальная структура и CI evidence |
 | [Dataset validation design](docs/superpowers/specs/2026-10-30-public-dataset-validation-design.md) | Проверяемые гипотезы и protocol до получения данных заказчика |
 | [Financial model](docs/business/financial-model.md) | ROI без подмены данных предположениями |
 | [Roadmap](docs/project/roadmap.md) | Этапы и критерии готовности |
@@ -43,7 +44,7 @@
 3. [Evaluation and business case](docs/superpowers/plans/2026-10-30-evaluation-and-business.md)
 4. [Public dataset baseline (DRAFT)](docs/superpowers/plans/2026-10-30-public-dataset-baseline.md) — первый этап после согласования дизайна
 
-**Важно:** планы — для обсуждения и утверждения. Они не являются отчётом о выполненных задачах или тестах. Внешние datasets для предварительной проверки: Zenodo Classification of IT Support Tickets (2,229 размеченных обращений) и Mendeley Help Desk Tickets v3 (операционные события). Пока не скачаны/не обработаны в рамках этого репозитория.
+**Важно:** планы — для обсуждения и утверждения. Они не являются отчётом о выполненных задачах или тестах. Внешние datasets для предварительной проверки: Zenodo Classification of IT Support Tickets (2,229 размеченных обращений) и Mendeley Help Desk Tickets v3 (операционные события). Оригиналы скачаны и проверены GitHub Actions 30.10.2026, см. [source verification](docs/data/source-verification-report.md). Zenodo CSV включены в репозиторий, Mendeley оригиналы доступны из краткоживущего workflow artifact. ML benchmark ещё не запускался.
 
 ## Выбор архитектуры
 

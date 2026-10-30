@@ -1,0 +1,321 @@
+{
+  "generated_utc": "2026-10-30T09:55:31.747001+00:00",
+  "validation_method": "download-originals+verify-zenodo-md5+aggregate-csv-schema",
+  "privacy_note": "Only aggregate metadata is committed; raw files remain gitignored and only in ephemeral CI workspace.",
+  "sources": {
+    "zenodo": {
+      "source": "https://zenodo.org/records/7648117",
+      "license": "CC-BY-4.0",
+      "files": {
+        "X_train.csv": {
+          "bytes": 215030,
+          "sha256": "789712f97fb472544eeb82d8f5a142ed46e0bf254c6c34ac53a9f1575a9d460e",
+          "md5": "0a79f0c2f95fcdb407f24b2c0ad7f7d1",
+          "expected_md5": "0a79f0c2f95fcdb407f24b2c0ad7f7d1",
+          "columns": [
+            "id",
+            "text"
+          ],
+          "rows": 1572,
+          "blank_by_column": {},
+          "first_ids": [
+            "1919",
+            "1584",
+            "584",
+            "1393",
+            "8636"
+          ],
+          "label_distribution": {},
+          "masked_placeholder_mentions": 4376,
+          "unmasked_email_pattern_matches": 0
+        },
+        "X_test.csv": {
+          "bytes": 164490,
+          "sha256": "4b808bc32c57f063960a3a4e7a4a30769c96be8143649aadc86835f4cb9763e5",
+          "md5": "02328c4e09a78a41acb22ce17e6e0312",
+          "expected_md5": "02328c4e09a78a41acb22ce17e6e0312",
+          "columns": [
+            "id",
+            "text"
+          ],
+          "rows": 657,
+          "blank_by_column": {},
+          "first_ids": [
+            "830",
+            "1030",
+            "1184",
+            "5570",
+            "4585"
+          ],
+          "label_distribution": {},
+          "masked_placeholder_mentions": 2886,
+          "unmasked_email_pattern_matches": 0
+        },
+        "y_train.csv": {
+          "bytes": 27838,
+          "sha256": "cb851ff4d5e792886504b3040bcc85a5dbf94514d31293eddd6d69fcb7278d53",
+          "md5": "90876921486a26a67bc1976da87305d9",
+          "expected_md5": "90876921486a26a67bc1976da87305d9",
+          "columns": [
+            "id",
+            "category_truth"
+          ],
+          "rows": 1572,
+          "blank_by_column": {},
+          "first_ids": [
+            "1919",
+            "1584",
+            "584",
+            "1393",
+            "8636"
+          ],
+          "label_distribution": {},
+          "masked_placeholder_mentions": 0,
+          "unmasked_email_pattern_matches": 0
+        },
+        "y_test.csv": {
+          "bytes": 11131,
+          "sha256": "2b10db5e2f071e649efb3d40dd007ec62bc661f35b4afaf44117a00865760f94",
+          "md5": "2f054c0e3d8cbbbd76adf30d13a7710a",
+          "expected_md5": "2f054c0e3d8cbbbd76adf30d13a7710a",
+          "columns": [
+            "id",
+            "category_truth"
+          ],
+          "rows": 657,
+          "blank_by_column": {},
+          "first_ids": [
+            "830",
+            "1030",
+            "1184",
+            "5570",
+            "4585"
+          ],
+          "label_distribution": {},
+          "masked_placeholder_mentions": 0,
+          "unmasked_email_pattern_matches": 0
+        }
+      },
+      "status": "success",
+      "split_integrity": {
+        "train": {
+          "x_rows": 1572,
+          "y_rows": 1572,
+          "join_key": "id",
+          "id_sets_match": true,
+          "x_headers": [
+            "id",
+            "text"
+          ],
+          "y_headers": [
+            "id",
+            "category_truth"
+          ]
+        },
+        "test": {
+          "x_rows": 657,
+          "y_rows": 657,
+          "join_key": "id",
+          "id_sets_match": true,
+          "x_headers": [
+            "id",
+            "text"
+          ],
+          "y_headers": [
+            "id",
+            "category_truth"
+          ]
+        }
+      }
+    },
+    "mendeley": {
+      "source": "https://data.mendeley.com/datasets/btm76zndnt/3",
+      "listing_url": "https://data.mendeley.com/public-api/datasets/btm76zndnt/files?folder_id=root&version=3",
+      "license": "CC-BY-4.0",
+      "files": {
+        "issues.csv": {
+          "bytes": 20586538,
+          "sha256": "eab3b8857bc19bd917e0767fb9c30b7714d5468b25c5a1c1cd71a760e9602f02",
+          "md5": "7ee7f46bcb5f5d8901254d2cc7b0d1e8",
+          "columns": [
+            "id",
+            "started",
+            "ended",
+            "issue_num",
+            "issue_proj",
+            "issue_reporter",
+            "issue_assignee",
+            "issue_contr_count",
+            "issue_type",
+            "issue_priority",
+            "issue_created",
+            "issue_resolution_date",
+            "issue_resolution",
+            "issue_status",
+            "issue_comments_count",
+            "last_change_date",
+            "wf_in_review",
+            "wfe_in_review",
+            "wf_deployment",
+            "wfe_deployment",
+            "wf_resolved",
+            "wfe_resolved",
+            "wf_open",
+            "wfe_open",
+            "wf_monitoring",
+            "wfe_monitoring",
+            "wf_done",
+            "wfe_done",
+            "wf_pending_customer_approval",
+            "wfe_pending_customer_approval",
+            "wf_rejected",
+            "wfe_rejected",
+            "wf_testing_monitoring",
+            "wfe_testing_monitoring",
+            "wf_in_progress",
+            "wfe_in_progress",
+            "wf_reopened",
+            "wfe_reopened",
+            "wf_to_do",
+            "wfe_to_do",
+            "wf_validation",
+            "wfe_validation",
+            "wf_resolved_under_monitoring",
+            "wfe_resolved_under_monitoring",
+            "wf_closed",
+            "wfe_closed",
+            "wf_waiting",
+            "wfe_waiting",
+            "wf_cancelled",
+            "wfe_cancelled",
+            "wf_under_review",
+            "wfe_under_review",
+            "wf_approved",
+            "wfe_approved",
+            "wf_pending_deployment",
+            "wfe_pending_deployment",
+            "wf_total_time",
+            "processing_steps"
+          ],
+          "rows": 66691,
+          "blank_by_column": {
+            "issue_assignee": 31047,
+            "wf_in_review": 66614,
+            "wf_deployment": 66556,
+            "wf_resolved": 38546,
+            "wf_monitoring": 66173,
+            "wf_done": 65831,
+            "wf_pending_customer_approval": 66437,
+            "wf_rejected": 66579,
+            "wf_testing_monitoring": 66401,
+            "wf_reopened": 64568,
+            "wf_to_do": 65906,
+            "wf_validation": 63730,
+            "wf_resolved_under_monitoring": 64760,
+            "wf_closed": 65096,
+            "wf_waiting": 46987,
+            "wf_cancelled": 66531,
+            "wf_under_review": 64870,
+            "wf_approved": 65061,
+            "wf_pending_deployment": 65278,
+            "wf_in_progress": 29944,
+            "issue_resolution_date": 853,
+            "issue_resolution": 853,
+            "wf_open": 78,
+            "last_change_date": 1
+          },
+          "first_ids": [
+            "11887.0",
+            "11890.0",
+            "11904.0",
+            "11907.0",
+            "11912.0"
+          ],
+          "label_distribution": {},
+          "masked_placeholder_mentions": 0,
+          "unmasked_email_pattern_matches": 0
+        },
+        "issues_change_history.csv": {
+          "bytes": 18912269,
+          "sha256": "93f6d99893bac6eb755c075dc4a3c3f655cab7c6b4e2d54a3dca0b26e4b6a3c6",
+          "md5": "d81b64b82527d8d4057e854c666d9e03",
+          "columns": [
+            "id",
+            "issueid",
+            "field",
+            "value",
+            "created",
+            "change_group_id"
+          ],
+          "rows": 257508,
+          "blank_by_column": {
+            "value": 1840
+          },
+          "first_ids": [
+            "10810.0",
+            "10821.0",
+            "10823.0",
+            "10824.0",
+            "10825.0"
+          ],
+          "label_distribution": {},
+          "masked_placeholder_mentions": 0,
+          "unmasked_email_pattern_matches": 0
+        },
+        "FEATURES.md": {
+          "bytes": 14794,
+          "sha256": "e9443bffac53623293274f8fc1860aec0cadde58056c9b31476d67005a60d495",
+          "md5": "04d0b3c3fa267d83af430807a02789f4"
+        },
+        "EXAMPLE.md": {
+          "bytes": 27503,
+          "sha256": "71de05944e1f1a3240d22716b292eb0586e00423b15bdf1a7513c6f66d945696",
+          "md5": "ee4ad2640a005c9421a620be2b970c99"
+        },
+        "sample_utterances.csv": {
+          "bytes": 3380477,
+          "sha256": "6486067634164a8d9fc361887b9b700965e704c9b03c87ef4e19275cccf30196",
+          "md5": "1c3f110ec5a0294cb381fc91f45d6451",
+          "columns": [
+            "issueid",
+            "id",
+            "comment_seq",
+            "utr_seq",
+            "author",
+            "created",
+            "is_private",
+            "actionbody",
+            "author_role"
+          ],
+          "rows": 30104,
+          "blank_by_column": {
+            "actionbody": 23
+          },
+          "first_ids": [
+            "211718014.0",
+            "211718014.0",
+            "211718014.0",
+            "1045407.0",
+            "1045407.0"
+          ],
+          "label_distribution": {},
+          "masked_placeholder_mentions": 0,
+          "unmasked_email_pattern_matches": 0
+        }
+      },
+      "status": "success",
+      "available_files": [
+        "db.png",
+        "EXAMPLE.md",
+        "FEATURES.md",
+        "holidays_by_country.csv",
+        "issues_change_history.csv",
+        "issues.csv",
+        "issues_snapshot.csv",
+        "issues_snapshot_sample.xlsx",
+        "process-flow.png",
+        "sample_utterances.csv"
+      ]
+    }
+  }
+}

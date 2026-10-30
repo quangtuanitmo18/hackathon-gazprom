@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from productpulse.data.adapters import parse_mendeley_rows, parse_zenodo_split
+from productpulse.data.adapters import parse_mendeley_rows, parse_zenodo_split, parse_mendeley_issues
 from productpulse.data.schema import CanonicalTicket
 
 
@@ -76,3 +76,29 @@ def test_mendeley_rejects_duplicate_id_without_double_counting():
 def test_mendeley_metadata_only_rows_cannot_pretend_to_be_tickets():
     with pytest.raises(ValueError, match="missing required fields"):
         parse_mendeley_rows([{"issue_id": 1, "issue_type": "Ticket"}])
+
+
+def test_zenodo_original_2022_release_category_truth_field():
+    """The downloaded Zenodo X/y CSVs use id,text and id,category_truth."""
+    x_rows = [{"id": "1919", "text": "File share access"}]
+    y_rows = [{"id": "1919", "category_truth": "Fileservice"}]
+    tickets = parse_zenodo_split(x_rows, y_rows, "train")
+    assert len(tickets) == 1
+    assert tickets[0].source_label == "Fileservice"
+
+
+def test_mendeley_original_issues_metadata_schema():
+    """Mendeley v3 issues.csv contains no original reporter text."""
+    rows = [{
+        "id": "12", "issue_proj": "erp", "issue_type": "Ticket",
+        "issue_created": "2019-04-07 12:30:00",
+        "issue_resolution_date": "2019-04-08 15:12:00",
+        "issue_resolution": "Done"
+    }]
+    record, = parse_mendeley_issues(rows)
+    assert record.source_id == "12"
+    assert record.project_id == "erp"
+    assert record.created_at_raw == "2019-04-07 12:30:00"
+    assert record.issue_type == "Ticket"
+    assert not hasattr(record, "text_redacted")
+    assert not hasattr(record, "source_label")
