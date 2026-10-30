@@ -36,10 +36,10 @@
 - Create: `docs/evaluation/annotation-guidelines.md`
 - Review: `docs/requirements/webneft-taxonomy.md` and `data/webneft/case-examples.json`.
 
-- [ ] **Step 1:** Define evidence sampling frame, source IDs, signed scope, temporal boundaries, channel coverage, privacy/retention.
-- [ ] **Step 2:** Define separate label rubrics `intent`, `business_journey`, `symptom`, `same_problem_pair`, `actionable` and `route`; two independent annotators, adjudicator, uncertainty.
-- [ ] **Step 3:** Specify sampling strategy, temporal and organization split; report n/coverage/confusion matrix and uncertainty per slice.
-- [ ] **Step 4:** Peer self-review against all seven PDF tickets and 20 adversarial scenarios; no invented ground truth.
+- [x] **Step 1:** Define evidence sampling frame, source IDs, signed scope, temporal boundaries, channel coverage, privacy/retention.
+- [x] **Step 2:** Define separate label rubrics `intent`, `business_journey`, `symptom`, `same_problem_pair`, `actionable` and `route`; two independent annotators, adjudicator, uncertainty.
+- [x] **Step 3:** Specify sampling strategy, temporal and organization split; report n/coverage/confusion matrix and uncertainty per slice.
+- [x] **Step 4:** Peer self-review against all seven PDF tickets and 20 adversarial scenarios; no invented ground truth.
 
 **Acceptance:** clearly separates semantic classification, pair relation, topic frequency and accepted product actions; no claim a PDF example provides labeled recurrence.
 
@@ -49,10 +49,10 @@
 - Create: `docs/evaluation/release-gates.md`
 - Update: `submissions/05-effect-metrics.ru.md`
 
-- [ ] **Step 1:** Freeze event clock and audit schema, classify each metric's denominator and missing-data policy.
-- [ ] **Step 2:** Define proposed pilot thresholds vs hard security gates; human feedback, wrong routing, duplicate outbox and ASR quality.
-- [ ] **Step 3:** Baseline discovery from existing manual workflow; missing baseline fallback; shadow stage and controlled switchback/pilot.
-- [ ] **Step 4:** Review for selection bias, missing feedback, uncertain coverage and fake causal claims. Cross-check against PDF item 5 and page 7.
+- [x] **Step 1:** Freeze event clock and audit schema, classify each metric's denominator and missing-data policy.
+- [x] **Step 2:** Define proposed pilot thresholds vs hard security gates; human feedback, wrong routing, duplicate outbox and ASR quality.
+- [x] **Step 3:** Baseline discovery from existing manual workflow; missing baseline fallback; shadow stage and controlled switchback/pilot.
+- [x] **Step 4:** Review for selection bias, missing feedback, uncertain coverage and fake causal claims. Cross-check against PDF item 5 and page 7.
 
 **Acceptance:** item 5 is standalone, auditable and can be measured by actual company systems if granted access; no threshold presented as measured fact.
 
@@ -63,11 +63,11 @@
 - Create: `docs/business/scenario-inputs.json`
 - Update: `submissions/main-solution.ru.md` item 6 **only if** required by critical review and 15k size budget.
 
-- [ ] **Step 1:** Recompute three stated input scenarios with `N=40`, `D=22`, 12 months; show hours/year, RUB/year, three-year gross before discount.
-- [ ] **Step 2:** Add `k` (fraction of freed time that is economically realizable), discount rate, wage growth, yearly adoption; provide present-value benefit and *conditional* cost ceiling, not fictional payback.
-- [ ] **Step 3:** Model alternative **manual reporting improvements / rules+BM25-only / hybrid Qwen** and non-additive business benefits, no invented actual cost.
-- [ ] **Step 4:** Explain macro/inflation scenarios as assumptions, not sourced predictions; note why zero model usage charge in PDF is not literally zero integration complexity.
-- [ ] **Step 5:** Independent arithmetic validation with stdlib and documentary review.
+- [x] **Step 1:** Recompute three stated input scenarios with `N=40`, `D=22`, 12 months; show hours/year, RUB/year, three-year gross before discount.
+- [x] **Step 2:** Add `k` (fraction of freed time that is economically realizable), discount rate, wage growth, yearly adoption; provide present-value benefit and *conditional* cost ceiling, not fictional payback.
+- [x] **Step 3:** Model alternative **manual reporting improvements / rules+BM25-only / hybrid Qwen** and non-additive business benefits, no invented actual cost.
+- [x] **Step 4:** Explain macro/inflation scenarios as assumptions, not sourced predictions; note why zero model usage charge in PDF is not literally zero integration complexity.
+- [x] **Step 5:** Independent arithmetic validation with stdlib and documentary review.
 
 **Acceptance:** formulas, scenario assumptions, missing actual `C` and causal value clearly distinguished; arithmetic checks green.
 
@@ -78,9 +78,11 @@
 - Update: `docs/superpowers/plans/2026-10-31-webneft-v2-case-and-submission-plan.md`
 - Update: Draft PR #24 (description and COMMENT self-review; **not APPROVE**).
 
-- [ ] **Step 1:** Add checks for independent gold labels/release gates, separate KPI file and scenario arithmetics.
-- [ ] **Step 2:** Run actual GitHub Actions on exact new HEAD; inspect logs, not just pending status.
-- [ ] **Step 3:** Critical review traceability to PDF pages 3/4/7, finance consistency with main answer, correct glossary `TPI`, `coverage`, `qualified_at`, `k`, `C`.
-- [ ] **Step 4:** Record residual limitations (no real baseline/LLM/label set/ROI, slide export pending) and leave PR Draft.
+- [x] **Step 1:** Add checks for independent gold labels/release gates, separate KPI file and scenario arithmetics.
+- [x] **Step 2:** Run actual GitHub Actions on exact new HEAD; inspect logs, not just pending status.
+- [x] **Step 3:** Critical review traceability to PDF pages 3/4/7, finance consistency with main answer, correct glossary `TPI`, `coverage`, `qualified_at`, `k`, `C`.
+- [x] **Step 4:** Record residual limitations (no real baseline/LLM/label set/ROI, slide export pending) and leave PR Draft.
 
 **Acceptance:** verifiable CI success for document-source checks only, explicit caveat that this does not mean external gold eval or enterprise production pilot ran.
+
+**Author checkpoint, 2026-10-31:** tasks 1–4 executed as documentation + source-level checks; [Critical self-review](../../reviews/2026-10-31-evaluation-economics-self-review.md) records corrected precision denominator, time censoring, input/finance sensitivity, five logical components, unmeasured company outcomes. **An independent person has not reviewed or approved the submission; all pilot/security signoffs, final render/export and merge decisions remain outstanding.**
