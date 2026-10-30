@@ -37,6 +37,13 @@ class CanonicalTicket(BaseModel):
             raise ValueError("ticket text cannot be blank")
         return value
 
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def reject_numeric_timestamp(cls, value: object) -> object:
+        if isinstance(value, (int, float, bool)):
+            raise ValueError("timestamp must be an explicit timezone-aware datetime or ISO string")
+        return value
+
     @field_validator("created_at")
     @classmethod
     def require_aware_utc(cls, value: datetime | None) -> datetime | None:
