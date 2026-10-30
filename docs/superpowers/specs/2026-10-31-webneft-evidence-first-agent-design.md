@@ -1,6 +1,6 @@
 # Webneft Intelligence Cup V2 — Evidence-First Product Feedback Agent
 
-**Status: PROPOSED FOR HUMAN DESIGN APPROVAL, not an approved architecture.** 2026-10-31.
+**Status: APPROACH C (Hybrid evidence-first, internal Qwen + deterministic tools) APPROVED BY USER on 2026-10-31.** Detailed diagram boundaries, tool interfaces, thresholds and business assumptions remain proposed pending review; this does **not** approve app implementation, merging, deploying or live data use.
 **Inputs:** official 7-page case PDF (primary), 7 user-ticket descriptions (PDF p. 6), user-provided DeepSeek analysis (secondary), [evidence audit](../../research/deepseek-webneft-evidence-audit.md) with dated historical public sources. **Do not mistake an old article or DeepSeek root-cause guess for confirmed current Webneft product behavior.**
 
 ## Intent and constraints
@@ -19,7 +19,7 @@
 | B — LLM-only single autonomous agent | Minimal hand-tuned rules; rich text summaries | Hallucinated counts/owners/root cause; weak replay/audit, prompt-injection surface, high inference dependence |
 | **C — Hybrid evidence-first workflow (recommended)** | Internal Qwen for narrow interpretation; trusted aggregation/permissions/routing/delivery; measured baseline; graceful fallback A | A few clear services/tools and golden labels required |
 
-**Recommendation:** C, with A as offline fallback and as the benchmark. It must outperform or complement A on adjudicated labels; otherwise do not spend cost on model calls.
+**Chosen design:** C, confirmed by the user on 2026-10-31; A remains the offline fallback and benchmark. It must outperform or complement A on adjudicated labels; otherwise do not spend cost on model calls.
 
 ## Minimal architecture (logical boundaries, not compulsory microservices)
 
@@ -94,9 +94,9 @@ Fields are **proposed**, not claimed existing in Webneft. Source `ingested_at` i
 5. Independently adjudicated topic / actionable labels and time-based holdout. Proposed initial pilot thresholds, subject to negotiation: actionable precision ≥0.80; routing accuracy ≥0.95; p90 qualified→sent ≤4h for async digest, **no degradation** in urgent support SLA. Recurring recall threshold only after establishing gold set.
 6. Financial value scenarios show freed support hours with adoption and wage assumptions, separated from actual cash savings and unobserved ROI.
 
-## User decision / design approval still needed
+## User decision / design approval
 
-This is the recommended architecture, **not owner-approved**. Before implementing optional code, decide whether to aim purely at mandatory docs and diagrams or add one simulated Webneft vertical slice. Both must prioritize submission. No external model/data access is implied.
+**Decision recorded:** user chose hybrid option C and confirmed no app/runtime code is required for the contest. Focus first on mandatory docs, source diagrams, KPI and slides on clean V2 branch. Any later demo/code needs its own explicit scope decision. Details are still design proposals, not production authorization. No external model/data access is implied.
 
 ## References
 - Primary: official `Кейс_Искусственный интеллект.pdf`, pages 1–7, user-uploaded.
