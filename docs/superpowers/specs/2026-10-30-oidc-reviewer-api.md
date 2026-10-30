@@ -16,7 +16,7 @@ The current PairAnnotation Pydantic model trusts `reviewer_id` supplied by calle
 
 Existing `ProblemRegistry` provides source-scoped canonical ticket identities, independently reviewed approval only, all-pairs merge, split and revoked approvals. Add **immutable** per-pair review records to versioned `to_state()` payload (same schema version with optional backwards-compatible field). One reviewer may submit once per pair; second distinct OIDC subject independently labels `same_incident | related_topic | different_incident | uncertain`. The backend issues review timestamps, never the caller. Same person cannot write both reviews, even using two tokens for same OIDC sub. After two reviews:
 
-- both `same_incident`: `ready_for_lead` (still not merged and not an approved link).
+- both `same_incident`: `ready_for_lead` (still not merged and not an approved link), then after independent lead approval: `approved` (but STILL not merged).
 - different labels: `disputed`.
 - either uncertain: `uncertain`.
 - both same non-positive label: `classified`, not an approval.
