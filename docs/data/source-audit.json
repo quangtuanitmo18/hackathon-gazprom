@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-10-30T09:49:06.377726+00:00",
+  "generated_utc": "2026-10-30T09:55:31.747001+00:00",
   "validation_method": "download-originals+verify-zenodo-md5+aggregate-csv-schema",
   "privacy_note": "Only aggregate metadata is committed; raw files remain gitignored and only in ephemeral CI workspace.",
   "sources": {
