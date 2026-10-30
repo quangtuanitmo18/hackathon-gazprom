@@ -90,3 +90,23 @@ test("server validates candidate queue schema, never accepts fabricated confiden
   }) as typeof fetch;
   await assert.rejects(fetchReviewerData(cfg,jwt.reviewerAccessToken,fabricated),/invalid upstream/);
 });
+
+test("reviewer evidence fetches beyond first 50 so ranked pair remains selectable",async()=>{
+  const makeTicket=(i:number)=>({
+    ticket_key:"synthetic"+i,source_system:"synthetic",source_ticket_id:String(i),
+    product_id:"erp",component_id:"auth",reported_version:"2.1",
+    error_codes:[],body_redacted:"Synthetic HTTP 403",
+  });
+  const seen:string[]=[];
+  const transport=(async(input:RequestInfo|URL)=>{
+    const url=String(input);seen.push(url);
+    const body=url.includes("/review-tickets")
+      ? (url.includes("offset=50")?[makeTicket(51)]:Array.from({length:50},(_,i)=>makeTicket(i+1)))
+      : [];
+    return new Response(JSON.stringify(body),{status:200,headers:{"Content-Type":"application/json"}});
+  }) as typeof fetch;
+  const data=await fetchReviewerData(cfg,jwt.reviewerAccessToken,transport);
+  assert.equal(data.tickets.length,51);
+  assert.ok(data.tickets.some(t=>t.ticket_key==="synthetic51"));
+  assert.ok(seen.some(url=>url.includes("offset=50")));
+});
