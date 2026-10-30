@@ -143,6 +143,22 @@ jobs:
               assert os.environ['DASHBOARD_PASSWORD'] not in page
           print('PASS: auth 401/200, real seeded Problem detail, audit, no tokens leaked')
           PY
+      - name: Install open-source Chromium browser for Playwright
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+      - name: Real Chromium UI navigation and search
+        working-directory: apps/web
+        run: npm run test:browser
+      - name: Upload browser failure screenshots and trace
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: productpulse-playwright-evidence
+          path: |
+            apps/web/test-results/
+            apps/web/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Server stderr on failure (redact credentials)
         if: failure()
         run: |
