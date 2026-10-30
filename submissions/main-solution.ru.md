@@ -14,7 +14,7 @@
 3. **Intelligence Engine** применяет внутренний Qwen к очищенному контексту, определяет тип обращения (дефект / вопрос / пожелание / сервисная операция), продуктовый путь и вероятные темы. Для поиска используются лексический baseline и, если качество на эталонной разметке это подтверждает, локальные семантические представления. Отдельный детерминированный агрегатор считает уникальные обращения и динамику; неизвестный source coverage не заменяется выдуманной полнотой. Выход — **неподтверждённый сигнал о повторяемости**, не доказательство общей причины.
 4. **Delivery & Feedback** применяет карту `product_id -> product_team`, внутреннюю очередь/outbox и правила значимости. Безопасные повторяющиеся пожелания направляются в *внутренний дайджест* с признаком «требует проверки»; подозрения о безопасности, спорные связи и любые действия в учётных записях/отгрузках требуют человека. Product team отмечает `accepted/rejected/needs_info/in_progress/resolved`, это становится обратной связью для оценки.
 
-**Почему не много микросервисов:** эти четыре части имеют независимые профили нагрузки и риски: ingestion — I/O и retry; ASR/VL — тяжёлые отдельные worker-пулы; intelligence — ограниченные внутренние model slots; delivery — независимая надежность/идемпотентность. В MVP можно развернуть единый модульный API с воркерами и PostgreSQL, а не создавать отдельные сетевые сервисы для каждого шага. Между обработкой и отправкой нужен transactional outbox, чтобы при сбое не терять и не дублировать сообщения. Внешний исходящий трафик запрещён; RBAC, audit, TLS внутри сети и egress-deny обязательны.
+**Почему не много микросервисов:** пять логических функций (ingestion, ASR/VL, intelligence/retrieval, aggregation/routing, delivery/feedback) имеют разные профили I/O, GPU/CPU и надежности; их можно разместить в трёх физических процессах MVP. В MVP можно развернуть единый модульный API с воркерами и PostgreSQL, а не создавать отдельные сетевые сервисы для каждого шага. Между обработкой и отправкой нужен transactional outbox, чтобы при сбое не терять и не дублировать сообщения. Внешний исходящий трафик запрещён; RBAC, audit, TLS внутри сети и egress-deny обязательны.
 
 **Оценка нагрузки:** число 40 — число людей, **не** количество RPS. Для инженерного планирования, но **не как факт о компании**, возьмём 20 заявок на менеджера в день: (40\times20=800) заявок/день или (800/86400\approx0{,}0093) входящих заявок/с в среднем. Нужно отдельно измерить peak factor, размер файлов, процент звонков, длительность audio и throughput Qwen. При гипотезе 30% звонков по 3 минуты это (240\times3=720) минут аудио/день; размер ASR worker-пула рассчитывается после бенчмарка скорости обработки и SLA, а не из среднего HTTP RPS. Неизвестные значения — задачи discovery.
 
@@ -41,7 +41,7 @@
 
 ### 3. Вариант системного промпта с пояснениями
 
-Ниже промпт для **внутренней текстовой модели**; идентификаторы источников и количественные расчёты проверяет application layer.
+Ниже проект промпта и ожидаемого JSON для **внутренней текстовой модели**; E1 — разрешённый alias, а идентификаторы источников, маршруты и количество обращений проверяет application layer. Пример НЕ является фактическим результатом инференса.
 
 ```text
 РОЛЬ: Ты аналитик обращений пользователей цифровых продуктов.
@@ -56,30 +56,32 @@
 СХЕМА КЛАССИФИКАЦИИ:
 1) request_type = bug_report | question | feature_request |
    service_request | unknown;
-2) business_topic = один из утверждённых кодов тем продукта | unknown;
-3) relation = same_problem_candidate | related_topic_only | unrelated |
+2) business_journey = утверждённый код пользовательского пути | unknown;
+3) relation_type = same_problem_candidate | related_topic_only | unrelated |
    insufficient_evidence;
-4) root_cause = null, пока явно не доказана независимым источником.
+4) root_cause_status = "unknown"; техническую причину не устанавливай.
 
-ИНСТРУМЕНТЫ: get_ticket_context, find_related_requests,
-aggregate_recurrence, resolve_product_team, create_insight_draft.
+ИНСТРУМЕНТЫ: get_ticket_context, find_related_requests.
+Trusted backend вызывает aggregate_recurrence и resolve_product_team.
 Получай counts только из aggregate_recurrence; не придумывай события
 или продуктовую команду. Если информации недостаточно — abstain.
 
 ВЫВОД: Только валидный JSON:
 {
-  "product_id": "string|null",
-  "business_topic": "string|unknown",
-  "request_type": "enum",
-  "relation": "enum",
-  "evidence_ticket_ids": ["source-id"],
-  "root_cause": null,
-  "recurrence_confirmed": false,
-  "recommended_action": "investigate|review_ux|answer_faq|route_service|none",
-  "route_status": "resolved|needs_human",
-  "needs_human_review": true
+  "schema_version": "request-analysis-v1",
+  "business_journey": "electronic_queue_booking",
+  "request_intent": "bug_report",
+  "symptom_codes": ["booking_404_or_slot_missing"],
+  "relation_type": "insufficient_evidence",
+  "root_cause_status": "unknown",
+  "recommended_action": "investigate",
+  "evidence_refs": ["E1"],
+  "abstain": false,
+  "abstain_reason": null,
+  "needs_human_review": false
 }
-Не добавляй поля, URL, команды или вероятности без калибровки.
+Не добавляй поля, URL, команды, confidence, source IDs или численность.
+Отправку выполняет только backend policy gate, не LLM.
 ```
 
 Раздел **РОЛЬ/ЦЕЛЬ** задаёт границы бизнес-задачи; **ДОВЕРИЕ** противостоит prompt injection и утечкам; **СХЕМА** разделяет тему от одинакового дефекта; **ИНСТРУМЕНТЫ** предотвращают галлюцинации чисел и получателя; **ВЫВОД** позволяет строго проверять Pydantic/JSON Schema. Промпт не является заменой backend RBAC, sanitizer, allowlist и политики отправки.
