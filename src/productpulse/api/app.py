@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import asdict
+from datetime import datetime, timezone
 from secrets import compare_digest
 from typing import Literal, Annotated
 
@@ -19,6 +20,7 @@ from productpulse.data.canonical import CanonicalTicketV1
 from productpulse.api.reviewer_auth import ReviewerJWTVerifier, ReviewTokenError, ReviewerPrincipal
 from productpulse.incident.annotation import PairLabel
 from productpulse.incident.candidates import rank_review_candidates
+from productpulse.insights.trends import analyze_problem_trends
 from productpulse.privacy.redaction import sanitize_ticket, UnsafeIdentity
 from productpulse.storage.repository import PersistentProblemRegistry
 
@@ -80,6 +82,28 @@ class CandidateOut(BaseModel):
     signals: tuple[Literal[
         "lexical_overlap","same_product","same_component","shared_error_code",
     ], ...]
+
+
+class TrendQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    window_hours: int = Field(default=24, ge=1, le=168)
+
+
+class TrendOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    problem_id: str
+    scope_id: str
+    revision: int
+    status: Literal[
+        "volume_increase", "new_activity", "monitor", "insufficient_timestamps"
+    ]
+    as_of: datetime
+    window_hours: int
+    current_count: int
+    previous_count: int
+    delta: int
+    current_ticket_keys: tuple[str, ...]
+    previous_ticket_keys: tuple[str, ...]
 
 
 class ReviewInput(BaseModel):
@@ -267,6 +291,36 @@ def create_app(
             )
             for key, ticket in rows
         ]
+
+    @app.get(
+        "/internal/v1/trends",
+        response_model=list[TrendOut],
+        dependencies=[Depends(require_internal)],
+    )
+    def verified_problem_trends(
+        params: Annotated[TrendQuery, Query()],
+        principal: ReviewerPrincipal = Depends(need_reviewer),
+    ):
+        # Neither an approved pair nor a BM25 hit creates Problem membership.
+        # Only active, explicitly merged records pass the projection below.
+        try:
+            rows = store.read(
+                scope_id,
+                lambda registry: analyze_problem_trends(
+                    registry.trend_inputs(corpus_cap=5000),
+                    trusted_scope=scope_id,
+                    as_of=datetime.now(timezone.utc),
+                    window_hours=params.window_hours,
+                    corpus_cap=5000,
+                ),
+            )
+        except ValueError as exc:
+            # Capacity or domain-corruption guard; no raw ticket contents.
+            raise HTTPException(
+                status_code=503,
+                detail="Verified trend evidence unavailable or capacity exceeded",
+            ) from exc
+        return [asdict(row) for row in rows]
 
     @app.get(
         "/internal/v1/reviews",
