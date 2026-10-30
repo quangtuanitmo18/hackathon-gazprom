@@ -23,7 +23,7 @@
 - Отдельные пары внутри одного active Problem и уже одобренные третьим reviewer связи исключаются.
 - Результат включает `ticket_key_a/b`, `created_at_a/b`, `as_of`, `window_hours`, `recent_pattern` (`both_current` или `current_with_previous`), `current_member_count`, `previous_member_count`, `rank`, категориальные `signals`, и строгие `evidence_type=lexical_candidate`, `coverage_status=unknown_coverage`, `eligible_for_alert=false`. Не включаются тело тикета, AI confidence, incident ID, guessed owner/root cause.
 
-**Важное ограничение recall:** `rank_review_candidates` выдаёт максимум 100 лучших lexical пар **до** проверки участия в текущем окне; shortlist может пропустить подходящую пару, если 100 предыдущих lexical пар занимают верх списка. Это сознательная граница MVP, не исчерпывающий поиск. По мере роста загрузки: indexed BM25 + фильтр времени в запросе/до top-K.
+**Важное ограничение recall:** в процессе code review воспроизведён риск, при котором 100 старых пар заслоняли новую. Теперь `rank_review_candidates(required_any_ticket_keys=...)` убирает пары, не содержащие свежего тикета, **до** окончательного top-100 ограничения (регрессионный тест проверяет 153 старых пар и 2 новых тикета). Однако BM25 рассматривает не более 30 ближайших кандидатов на каждый запрос: это **не** исчерпывающий поиск и не оценка recall. По мере роста нагрузки нужен indexed retrieval с ранним temporal predicate и объективной проверкой качества на adjudicated labels.
 
 ## Временная честность и безопасность
 
