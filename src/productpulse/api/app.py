@@ -21,6 +21,7 @@ from productpulse.api.reviewer_auth import ReviewerJWTVerifier, ReviewTokenError
 from productpulse.incident.annotation import PairLabel
 from productpulse.incident.candidates import rank_review_candidates
 from productpulse.insights.trends import analyze_problem_trends
+from productpulse.insights.unverified_activity import list_unverified_activity
 from productpulse.privacy.redaction import sanitize_ticket, UnsafeIdentity
 from productpulse.storage.repository import PersistentProblemRegistry
 
@@ -82,6 +83,32 @@ class CandidateOut(BaseModel):
     signals: tuple[Literal[
         "lexical_overlap","same_product","same_component","shared_error_code",
     ], ...]
+
+
+class UnverifiedActivityQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    window_hours: int = Field(default=24, ge=1, le=168)
+    limit: int = Field(default=20, ge=1, le=30)
+
+
+class UnverifiedActivityOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ticket_key_a: str
+    ticket_key_b: str
+    created_at_a: datetime
+    created_at_b: datetime
+    as_of: datetime
+    window_hours: int
+    recent_pattern: Literal["both_current", "current_with_previous"]
+    current_member_count: int = Field(ge=1, le=2)
+    previous_member_count: int = Field(ge=0, le=1)
+    rank: int = Field(ge=1)
+    signals: tuple[Literal[
+        "lexical_overlap", "same_product", "same_component", "shared_error_code"
+    ], ...]
+    evidence_type: Literal["lexical_candidate"]
+    coverage_status: Literal["unknown_coverage"]
+    eligible_for_alert: Literal[False]
 
 
 class TrendQuery(BaseModel):
@@ -266,6 +293,39 @@ def create_app(
             raise HTTPException(
                 status_code=503,
                 detail="Candidate index capacity exceeded; use larger indexed retrieval service",
+            ) from exc
+
+    @app.get(
+        "/internal/v1/unverified-activity",
+        response_model=list[UnverifiedActivityOut],
+        dependencies=[Depends(require_internal)],
+    )
+    def unverified_activity(
+        params: Annotated[UnverifiedActivityQuery, Query()],
+        principal: ReviewerPrincipal = Depends(need_reviewer),
+    ):
+        """Non-transitive, evidence-only early reviewer pair shortlist.
+
+        No Problem membership, incident verdict, notification, or tracker
+        write. The snapshot has no source coverage/ingest-time guarantee.
+        """
+        try:
+            def evaluate(reg):
+                rows = reg.candidate_inputs(corpus_cap=500)
+                approved = {tuple(ap.ticket_keys) for ap in reg.active_approvals()}
+                return list_unverified_activity(
+                    rows,
+                    approved_pairs=approved,
+                    as_of=datetime.now(timezone.utc),
+                    window_hours=params.window_hours,
+                    limit=params.limit,
+                    corpus_cap=500,
+                )
+            return [asdict(row) for row in store.read(scope_id, evaluate)]
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Unverified activity unavailable or candidate corpus capacity exceeded",
             ) from exc
 
     @app.get(
