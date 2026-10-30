@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "./auth";
 import { readAuthConfig, verifyBasicAuthorization } from "./lib/auth";
 
-/**
- * Demo-only auth boundary. On the open internet replace with OIDC and RBAC.
- * Never expose the backend X-Internal-Token to the browser.
- */
-export function proxy(request: NextRequest) {
+/** OIDC reviewer mode; session verified by Auth.js. */
+const oidcProxy = auth((request) => {
+  if (!request.auth) return NextResponse.redirect(new URL("/login", request.nextUrl.origin));
+  return NextResponse.next();
+});
+
+/** Backward-compatible, strictly read-only Basic demo. */
+function basicProxy(request: NextRequest) {
   let allowed = false;
   try {
     allowed = verifyBasicAuthorization(
@@ -13,10 +17,8 @@ export function proxy(request: NextRequest) {
       readAuthConfig(process.env),
     );
   } catch {
-    // Fail closed if auth config is absent or invalid.
     return new NextResponse("Dashboard authentication is not configured", {
-      status: 503,
-      headers: { "Cache-Control": "no-store" },
+      status: 503, headers: { "Cache-Control": "no-store" },
     });
   }
   if (!allowed) {
@@ -31,6 +33,8 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
+// Auth.js OIDC is opt-in; existing read-only dashboard remains Basic.
+export const proxy = process.env.PRODUCTPULSE_AUTH_MODE === "oidc" ? oidcProxy : basicProxy;
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|healthz).*)"],
+  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|healthz|login).*)"],
 };
