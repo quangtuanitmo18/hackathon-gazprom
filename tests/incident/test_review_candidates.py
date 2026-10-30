@@ -78,3 +78,10 @@ def test_singleton_and_nonmatching_source_scoped_ticket_ids():
     assert ticket_key(a)!=ticket_key(b)
     results=rank_review_candidates(inputs((a,"p1"),(b,"p2")))
     assert len(results)==1
+
+
+def test_shared_product_and_component_alone_are_not_duplicate_evidence():
+    # Both belong to ERP/auth, but the incident narratives are unrelated.
+    a=ticket("a","Квитанция исчезла",product="erp",component="auth",error=())
+    b=ticket("b","Сертификат просрочен",product="erp",component="auth",error=())
+    assert rank_review_candidates(inputs((a,"p1"),(b,"p2")))==()
