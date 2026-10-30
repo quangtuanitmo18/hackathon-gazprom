@@ -30,3 +30,10 @@ def test_manifest_rejects_unknown_license(tmp_path):
 def test_manifest_rejects_missing_file(tmp_path):
     with pytest.raises(FileNotFoundError):
         build_provenance_manifest("https://example.org/data", "CC-BY-4.0", tmp_path / "missing.csv")
+
+
+def test_manifest_rejects_url_bearing_credentials(tmp_path):
+    sample = tmp_path / "fixture.csv"
+    sample.write_text("x")
+    with pytest.raises(ValueError, match="credentials|query"):
+        build_provenance_manifest("https://user:secret@example.org/data?token=secret", "CC-BY-4.0", sample)
