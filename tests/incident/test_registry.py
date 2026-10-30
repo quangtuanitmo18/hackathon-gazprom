@@ -147,3 +147,97 @@ def test_duplicate_approval_new_key_does_not_spam_audit():
     second=approve(r,a,b,key="key2")
     assert first.pair_id == second.pair_id
     assert len([x for x in r.audit_events() if x.kind=="pair_approved"])==1
+
+
+def do_merge(r, p, q, *, key="merge-1", rv_p=1, rv_q=1, reason="Expert confirmed shared incident"):
+    return r.merge(
+        p.problem_id, q.problem_id, actor="product-owner",
+        reason=reason, operation_key=key,
+        expected_primary_revision=rv_p,
+        expected_secondary_revision=rv_q,
+    )
+
+
+def test_merge_requires_source_confirmed_pair_and_preserves_tombstone():
+    r,(a,b),(pa,pb)=registered("1","2")
+    approve(r,a,b)
+    merged=do_merge(r,pa,pb)
+    assert merged.problem_id == pa.problem_id
+    assert merged.status == "active"
+    assert merged.revision == 2
+    assert set(merged.ticket_keys) == {ticket_key(a),ticket_key(b)}
+    assert r.problem_for_ticket(b) == merged
+    tomb=r.get_problem(pb.problem_id)
+    assert tomb.status == "merged" and tomb.merged_into == pa.problem_id
+    assert tomb.ticket_keys == ()
+    assert r.audit_events()[-1].kind == "problems_merged"
+
+
+def test_no_human_pair_approval_means_merge_rejected_atomically():
+    r,(a,b),(pa,pb)=registered("1","2")
+    before=r.audit_events()
+    with pytest.raises(ValueError, match="approved"):
+        do_merge(r,pa,pb)
+    assert r.audit_events()==before
+    assert r.get_problem(pa.problem_id)==pa
+    assert r.get_problem(pb.problem_id)==pb
+
+
+def test_two_positive_edges_do_not_allow_unsafe_transitive_merge():
+    r,(a,b,c),(pa,pb,pc)=registered("1","2","3")
+    approve(r,a,b)
+    approve(r,b,c)
+    ab=do_merge(r,pa,pb)
+    with pytest.raises(ValueError,match="approved cross-pair"):
+        do_merge(r,ab,pc,key="merge-2",rv_p=ab.revision)
+    assert r.problem_for_ticket(c)==pc
+    assert r.get_problem(pa.problem_id)==ab
+
+
+def test_complete_link_evidence_allows_merging_group_and_singleton():
+    r,(a,b,c),(pa,pb,pc)=registered("1","2","3")
+    approve(r,a,b)
+    approve(r,b,c)
+    approve(r,a,c)
+    ab=do_merge(r,pa,pb)
+    abc=do_merge(r,ab,pc,key="merge-2",rv_p=ab.revision)
+    assert len(abc.ticket_keys)==3
+    assert abc.revision==3
+
+
+def test_stale_revision_rejected_without_side_effect():
+    r,(a,b),(pa,pb)=registered("1","2")
+    approve(r,a,b)
+    before=r.audit_events()
+    with pytest.raises(ValueError,match="stale revision"):
+        do_merge(r,pa,pb,rv_p=99)
+    assert r.audit_events()==before
+
+
+def test_merge_operation_replay_is_idempotent_even_after_tombstone():
+    r,(a,b),(pa,pb)=registered("1","2")
+    approve(r,a,b)
+    first=do_merge(r,pa,pb)
+    count=len(r.audit_events())
+    assert do_merge(r,pa,pb)==first
+    assert len(r.audit_events())==count
+    with pytest.raises(ValueError,match="idempotency"):
+        do_merge(r,pa,pb,key="merge-1",reason="changed reason")
+
+
+def test_cross_scope_merge_rejected_even_if_approval_cannot_exist():
+    r=ProblemRegistry()
+    a,b=ticket("1"),ticket("2")
+    pa=r.register_ticket(a,"tenant-a")
+    pb=r.register_ticket(b,"tenant-b")
+    with pytest.raises(ValueError,match="scope"):
+        do_merge(r,pa,pb)
+
+
+def test_merge_self_or_blank_reason_disallowed():
+    r,(a,b),(pa,pb)=registered("1","2")
+    approve(r,a,b)
+    with pytest.raises(ValueError,match="distinct"):
+        do_merge(r,pa,pa)
+    with pytest.raises(ValueError,match="reason"):
+        do_merge(r,pa,pb,reason=" ")
