@@ -13,6 +13,7 @@ from productpulse.eval.retrieval_methods import BM25Index, tokenize
 def rank_review_candidates(
     inputs: Sequence[tuple[str, CanonicalTicketV1, str]],
     *, approved_pairs: set[tuple[str, str]] | frozenset[tuple[str, str]] = frozenset(),
+    required_any_ticket_keys: frozenset[str] | None = None,
     limit: int = 20,
     corpus_cap: int = 500,
 ) -> tuple[dict, ...]:
@@ -20,6 +21,8 @@ def rank_review_candidates(
 
     Each input row is (source-scoped ticket_key, ticket, active problem ID),
     pre-filtered to ONE tenant by the caller. Zero term overlap is excluded.
+    When required_any_ticket_keys is set, discard old-only pairs BEFORE
+    applying the ranked output limit. This cannot imply candidate recall.
     """
     if limit < 1 or corpus_cap < 1 or limit > 100:
         raise ValueError("invalid candidate limit or corpus capacity")
@@ -59,6 +62,10 @@ def rank_review_candidates(
             _, b_ticket, b_problem = sorted_rows[j]
             pair = tuple(sorted((a_key,b_key)))
             if a_problem == b_problem or pair in approved_pairs:
+                continue
+            if (required_any_ticket_keys is not None
+                    and not (pair[0] in required_any_ticket_keys
+                             or pair[1] in required_any_ticket_keys)):
                 continue
             overlap=tokens[i] & tokens[j]
             if not overlap:
