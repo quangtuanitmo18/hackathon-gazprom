@@ -200,6 +200,24 @@ def verify() -> None:
     assert "Webneft" in slide_storyboard and "10 слайдов" in slide_storyboard
     print("PASS: synthetic end-to-end insight has exactly 3 invented IDs, "
           "no real recurrence/causal/delivery claims")
+    # Defense notes must match the 10-slide deck without presenting demo
+    # counts, pilot targets, or financial scenarios as observed outcomes.
+    speech = read("submissions/jury-defense-script.ru.md")
+    q_and_a = read("submissions/jury-questions-answers.ru.md")
+    slide_headings = re.findall(r"(?m)^## Слайд (\\d+) —", speech)
+    assert slide_headings == [str(i) for i in range(1, 11)], slide_headings
+    questions = re.findall(r"(?m)^### (\\d+)\\.", q_and_a)
+    assert questions == [str(i) for i in range(1, 23)], questions
+    assert "официальном PDF не указан фиксированный регламент" in speech
+    assert "полностью синтетический" in speech.lower()
+    assert "SYN-QUEUE" in q_and_a
+    assert "не реальные три тикета" in q_and_a.lower() or "полностью синтетические" in q_and_a.lower()
+    for term in ("BM25", "Qwen-ASR", "Qwen-VL", "qualified_at", "0,80", "0,95",
+                 "123", "1,64", "7,39", "baseline", "ROI"):
+        assert term in speech + q_and_a, f"Defense materials lack {term}"
+    assert "внешние" in q_and_a.lower() and "Webneft" in business_story
+    print("PASS: defense script covers slides 1..10 and 22 jury questions; "
+          "uncertainty, synthetic case and scenario warnings documented")
     print("PASS: official case contract, 1–4 + 6, separate 5,",
           f"main={len(main)} chars, seven unadjudicated examples, ten slides")
 
