@@ -160,3 +160,65 @@ class ProblemRegistry:
             )
         self._operations[op] = (signature, approved)
         return approved
+
+
+    def merge(
+        self, primary_id: str, secondary_id: str,
+        *, actor: str, reason: str, operation_key: str,
+        expected_primary_revision: int, expected_secondary_revision: int,
+    ) -> ProblemRecord:
+        """Explicit complete-link approved merge; rejects unsafe transitive chains."""
+        actor = self._required(actor, "actor")
+        reason = self._required(reason, "reason")
+        op = self._required(operation_key, "operation_key")
+        signature: tuple[object, ...] = (
+            "merge", primary_id, secondary_id, actor, reason,
+            expected_primary_revision, expected_secondary_revision,
+        )
+        replay = self._replay(op, signature)
+        if replay is not None:
+            assert isinstance(replay, ProblemRecord)
+            return replay
+        if primary_id == secondary_id:
+            raise ValueError("merge requires distinct problems")
+        primary, secondary = self.get_problem(primary_id), self.get_problem(secondary_id)
+        if primary.status != "active" or secondary.status != "active":
+            raise ValueError("cannot merge a non-active problem")
+        if primary.scope_id != secondary.scope_id:
+            raise ValueError("cannot merge across scope boundaries")
+        if (
+            primary.revision != expected_primary_revision
+            or secondary.revision != expected_secondary_revision
+        ):
+            raise ValueError("stale revision; reload before merging")
+        missing = [
+            pair_identity(self._tickets[a], self._tickets[b])
+            for a in primary.ticket_keys for b in secondary.ticket_keys
+            if pair_identity(self._tickets[a], self._tickets[b]) not in self._approved
+        ]
+        if missing:
+            raise ValueError(
+                f"all approved cross-pair evidence required before merge; missing {len(missing)} link(s)"
+            )
+
+        all_members = tuple(sorted(primary.ticket_keys + secondary.ticket_keys))
+        merged = ProblemRecord(
+            problem_id=primary_id, scope_id=primary.scope_id,
+            ticket_keys=all_members, revision=primary.revision + 1,
+        )
+        retired = ProblemRecord(
+            problem_id=secondary_id, scope_id=secondary.scope_id,
+            ticket_keys=(), revision=secondary.revision + 1,
+            status="merged", merged_into=primary_id,
+        )
+        # No state mutation occurs before every validation above succeeds.
+        self._problems[primary_id] = merged
+        self._problems[secondary_id] = retired
+        for key in secondary.ticket_keys:
+            self._owners[key] = primary_id
+        self._event(
+            "problems_merged", actor, op, (primary_id, secondary_id),
+            all_members, reason,
+        )
+        self._operations[op] = (signature, merged)
+        return merged
