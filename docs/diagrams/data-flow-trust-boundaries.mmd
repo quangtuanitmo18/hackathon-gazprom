@@ -1,0 +1,40 @@
+%% Data Flow Diagram (DFD) — proposed security zones; not deployed.
+flowchart TB
+  subgraph Z0["Зона источника: ограниченные права чтения"]
+    SRC[("Ticket DB / call media / attachments<br/>хранение источника: 1 год")]
+  end
+  subgraph Z1["Внутренний защищённый контур обработки"]
+    ING["Ingest: IDs, timestamps, provenance"]
+    AV["Internal ASR/VL workers<br/>исходные media могут содержать PII"]
+    SAN{"Data minimization<br/>PII/секреты, разрешения"}
+    TEXT["Internal Qwen text analysis<br/>только разрешённый очищенный контекст"]
+    DBASE[("Operational store<br/>minimum metadata, evidence refs, audit")]
+    AGG["Trusted aggregation<br/>dedup, coverage, time windows"]
+    POLICY{"Trust / policy gate<br/>owner map, risk, source evidence"}
+    DELIVERY["Internal outbox<br/>no duplicate delivery"]
+  end
+  subgraph Z2["Авторизованные корпоративные получатели"]
+    INBOX["Product Team Inbox"]
+    REVIEWER["Human reviewer<br/>неясное/срочное/чувствительное"]
+  end
+  EXT["Внешний интернет / внешние LLM API<br/>ЗАПРЕЩЕНО"]:::blocked
+  SRC -->|"read-only permitted records"| ING
+  ING -->|"разрешённые media refs"| AV
+  ING -->|"содержимое заявки"| SAN
+  AV -->|"transcript / image cues"| SAN
+  SAN -->|"только после политики обработки"| TEXT
+  TEXT -->|"тип/тема/симптом — гипотезы"| AGG
+  ING -->|"source IDs + ingestion time"| AGG
+  AGG -->|"counts + evidence + coverage"| POLICY
+  POLICY -->|"низкий риск + утверждённое правило"| DELIVERY
+  POLICY -->|"неясно, секрет или срочная операция"| REVIEWER
+  REVIEWER -->|"человеческое решение"| POLICY
+  DELIVERY -->|"корпоративный маршрут"| INBOX
+  INBOX -->|"feedback"| DELIVERY
+  ING -.-> DBASE
+  AGG -.-> DBASE
+  DELIVERY -.-> DBASE
+  SAN -.->|"не передавать"| EXT
+  classDef blocked fill:#ffe3e3,stroke:#bf4444,color:#782020;
+  classDef guard fill:#fff2d9,stroke:#a66b17,color:#4d3210;
+  class SAN,POLICY guard;
