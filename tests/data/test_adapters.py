@@ -76,3 +76,13 @@ def test_mendeley_rejects_duplicate_id_without_double_counting():
 def test_mendeley_metadata_only_rows_cannot_pretend_to_be_tickets():
     with pytest.raises(ValueError, match="missing required fields"):
         parse_mendeley_rows([{"issue_id": 1, "issue_type": "Ticket"}])
+
+
+def test_zenodo_original_2022_release_category_truth_field():
+    """The downloaded Zenodo X/y CSVs use id,text and id,category_truth."""
+    x_rows = [{"id": "1919", "text": "File share access"}]
+    y_rows = [{"id": "1919", "category_truth": "Fileservice"}]
+    tickets = parse_zenodo_split(x_rows, y_rows, "train")
+    assert len(tickets) == 1
+    assert tickets[0].source_label == "Fileservice"
+
