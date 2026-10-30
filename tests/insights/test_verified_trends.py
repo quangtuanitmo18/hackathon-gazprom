@@ -14,7 +14,7 @@ def make_problem(*ages, scope="tenant-a", problem_id="PRB-1", revision=2):
     return ProblemTimeline(
         problem_id=problem_id, scope_id=scope, revision=revision,
         ticket_times=tuple(
-            (f"source:{i}", None if h is None else NOW - timedelta(hours=h))
+            (f"{problem_id}:source:{i}", None if h is None else NOW - timedelta(hours=h))
             for i, h in enumerate(ages)
         ),
     )
@@ -32,7 +32,7 @@ def test_confirmed_three_member_problem_new_activity_not_statistically_proven_sp
     assert (trend.current_count, trend.previous_count, trend.delta) == (3, 0, 3)
     assert trend.problem_id == "PRB-1"
     assert trend.revision == 2
-    assert trend.current_ticket_keys == ("source:0", "source:1", "source:2")
+    assert trend.current_ticket_keys == ("PRB-1:source:0", "PRB-1:source:1", "PRB-1:source:2")
     assert trend.previous_ticket_keys == ()
     assert trend.as_of == NOW
     assert trend.window_hours == 24
@@ -44,7 +44,7 @@ def test_volume_increase_has_nonzero_observed_baseline_and_absolute_threshold():
         "volume_increase", 4, 1
     )
     assert trend.delta == 3
-    assert trend.previous_ticket_keys == ("source:4",)
+    assert trend.previous_ticket_keys == ("PRB-1:source:4",)
 
 
 def test_stable_declining_or_low_counts_do_not_emit_alerts():
