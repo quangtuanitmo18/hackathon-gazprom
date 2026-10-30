@@ -1,0 +1,29 @@
+%% Narrow orchestrated agent; LLM interpretations NEVER authorize writes or compute counts.
+flowchart TD
+  A(["Новый / обновлённый тикет или запись звонка"]) --> B["Проверить права, provenance,<br/>source ID и временные метки"]
+  B --> C{"Операционная срочность<br/>или чувствительный запрос?"}
+  C -->|"Да"| H["Сохранить существующий SLA<br/>человек решает, AI не задерживает"]
+  C -->|"Нет"| D["Internal Qwen-ASR / VL при необходимости<br/>PII minimization"]
+  D --> E["Текстовая Qwen: тип запроса, journey,<br/>symptom, relation proposal"]
+  E --> F{"Структура валидна<br/>есть evidence?"}
+  F -->|"Нет"| F0["Abstain / request human review"]
+  F -->|"Да"| G["BM25 / тематический retrieval<br/>без transitive same-incident merge"]
+  G --> I["Trusted tool: aggregate_recurrence<br/>unique source tickets + window + coverage"]
+  I --> J{"Значимый повторяемый сигнал<br/>по утверждённым правилам?"}
+  J -->|"Нет или unknown coverage"| J0["Сохранить candidate / monitor<br/>без выдуманной тенденции"]
+  J -->|"Да"| K["Resolve product team<br/>из справочника, не догадка LLM"]
+  K --> L{"Есть получатель<br/>и разрешена внутренняя доставка?"}
+  L -->|"Нет"| F0
+  L -->|"Да"| M["Создать evidence-linked draft<br/>root cause = unknown"]
+  M --> N{"Низкий риск и policy<br/>разрешает advisory digest?"}
+  N -->|"Нет"| F0
+  N -->|"Да"| O["Outbox: internal digest<br/>идемпотентно, без внешнего API"]
+  O --> P["Product team feedback<br/>accepted / rejected / needs_info"]
+  P --> Q["Audit, KPI и human-labeled evaluation"]
+  H --> Q
+  F0 --> Q
+  J0 --> Q
+  classDef safe fill:#e6f4ee,stroke:#398767,color:#204e3b;
+  classDef uncertain fill:#fff1d9,stroke:#b57a17,color:#60400d;
+  class H,F0,J0 uncertain;
+  class O,P,Q safe;
