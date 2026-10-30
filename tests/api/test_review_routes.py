@@ -530,3 +530,102 @@ def test_lead_approved_unmerged_pair_not_in_unverified_activity(api):
     )
     # Approval is not a merge; see the separate confirmed Problem workflow.
     assert len(store.read(scope, lambda reg: reg.list_active())) == 4
+
+
+def test_insight_proposal_requires_merged_problem_and_scoped_reviewer(api):
+    c, store, scope, keys, base, signed = api
+    url="/internal/v1/insight-proposals"
+    assert c.get(url).status_code==401
+    assert c.get(url,headers=base).status_code==401
+    assert c.get(url,headers={"Authorization":"Bearer "+signed("reviewer")}).status_code==401
+    assert c.get(url,headers=h(base,signed,"other",tenant="different")).status_code in (401,403)
+    assert c.get(url+"?scope_id=other",headers=h(base,signed,"reviewer")).status_code==422
+    assert c.get(url,headers=h(base,signed,"reviewer")).json()==[]
+    for who in ("agent-reviewer-one","agent-reviewer-two"):
+        resp=c.post("/internal/v1/reviews",headers=h(base,signed,who),
+                    json=vote(keys,op="agent-"+who))
+        assert resp.status_code==201,resp.text
+    resp=c.post("/internal/v1/reviews/approve",headers=h(base,signed,"agent-third","productpulse_review_lead"),
+                json={"ticket_key_a":keys[0],"ticket_key_b":keys[1],
+                      "reason":"Independent review complete","operation_key":"agent-approved-pair"})
+    assert resp.status_code==201,resp.text
+    assert c.get(url,headers=h(base,signed,"reviewer")).json()==[] # approval != merge
+    pids=[p.problem_id for p in store.read(scope,lambda r:r.list_active())]
+    store.transact(scope,lambda r:r.merge(
+        pids[0],pids[1],actor="trusted-lead",reason="Full pair evidence",
+        operation_key="agent-explicit-merge",expected_primary_revision=1,expected_secondary_revision=1))
+    before=store.audit(scope)
+    result=c.get(url,headers=h(base,signed,"reviewer"))
+    assert result.status_code==200,result.text
+    rows=result.json()
+    assert len(rows)==1
+    p=rows[0]
+    assert p["approval_status"]=="pending"
+    assert p["revision"]==2
+    assert set(p["evidence_ticket_keys"])==set(keys)
+    assert p["root_cause_status"]=="unknown" and p["owner_team_id"] is None
+    assert p["requires_human_review"] is True
+    assert p["mock_issue_id"] is None
+    assert "confidence" not in p and "body_redacted" not in p
+    assert store.audit(scope)==before
+
+
+def test_insight_lead_approval_and_separate_mock_publication_with_persisted_retries(api):
+    from productpulse.storage.repository import PersistentProblemRegistry
+
+    c,store,scope,keys,base,signed=api
+    pids=[p.problem_id for p in store.read(scope,lambda r:r.list_active())]
+    for who in ("insight-one","insight-two"):
+        assert c.post("/internal/v1/reviews",headers=h(base,signed,who),
+                      json=vote(keys,op="insight-"+who)).status_code==201
+    assert c.post("/internal/v1/reviews/approve",
+        headers=h(base,signed,"insight-lead-pair","productpulse_review_lead"),
+        json={"ticket_key_a":keys[0],"ticket_key_b":keys[1],
+              "reason":"Approved linked pair","operation_key":"insight-lead-linked"}).status_code==201
+    store.transact(scope,lambda r:r.merge(
+        pids[0],pids[1],actor="lead",reason="Verified group",
+        operation_key="insight-merge",expected_primary_revision=1,expected_secondary_revision=1))
+    url="/internal/v1/insight-proposals"
+    draft,=c.get(url,headers=h(base,signed,"reviewer")).json()
+    approve=url+"/"+pids[0]+"/approve"
+    publish=url+"/"+pids[0]+"/mock-publish"
+    body={"expected_revision":draft["revision"],"evidence_digest":draft["evidence_digest"],
+          "reason":"Reviewed exact ticket evidence","operation_key":"insight-approve-key"}
+    pub={"expected_revision":draft["revision"],"evidence_digest":draft["evidence_digest"],
+         "reason":"Approved mock only","operation_key":"insight-publish-key"}
+    assert c.post(publish,headers=h(base,signed,"lead","productpulse_review_lead"),json=pub).status_code==409
+    assert c.post(approve,headers=h(base,signed,"ordinary"),json=body).status_code in (401,403)
+    assert c.post(approve,headers=base,json=body).status_code==401
+    assert c.post(approve,headers=h(base,signed,"lead","productpulse_review_lead"),
+                  json={**body,"scope_id":"attacker"}).status_code==422
+    assert c.post(approve,headers=h(base,signed,"lead","productpulse_review_lead"),
+                  json={**body,"evidence_digest":"f"*64}).status_code==409
+    assert c.post(approve,headers=h(base,signed,"lead","productpulse_review_lead"),
+                  json={**body,"expected_revision":99}).status_code==409
+    before=store.audit(scope)
+    approved=c.post(approve,headers=h(base,signed,"lead","productpulse_review_lead"),json=body)
+    assert approved.status_code==201,approved.text
+    assert approved.json()["proposal_id"]==draft["proposal_id"]
+    assert len(store.audit(scope))==len(before)+1
+    repeat=c.post(approve,headers=h(base,signed,"lead","productpulse_review_lead"),json=body)
+    assert repeat.status_code==201 and repeat.json()==approved.json()
+    assert len(store.audit(scope))==len(before)+1
+    p,=c.get(url,headers=h(base,signed,"reviewer")).json()
+    assert p["approval_status"]=="approved" and p["mock_issue_id"] is None
+    sent=c.post(publish,headers=h(base,signed,"lead","productpulse_review_lead"),json=pub)
+    assert sent.status_code==201,sent.text
+    assert sent.json()["mock_issue_id"].startswith("MOCK-")
+    assert len(store.audit(scope))==len(before)+2
+    again=c.post(publish,headers=h(base,signed,"lead","productpulse_review_lead"),json=pub)
+    assert again.status_code==201 and again.json()==sent.json()
+    assert len(store.audit(scope))==len(before)+2
+    persisted=PersistentProblemRegistry(store.engine)
+    p2,=persisted.read(scope,lambda r:r.insight_proposals(scope))
+    assert p2.mock_issue_id==sent.json()["mock_issue_id"]
+    assert p2.approval_status=="approved"
+    assert not any("body_redacted" in str(x) for x in store.audit(scope))
+    store.transact(scope,lambda r:r.split(
+        pids[0],partitions=((keys[0],),(keys[1],)),actor="lead",
+        reason="Incorrect link corrected",operation_key="insight-split",expected_revision=2))
+    assert c.get(url,headers=h(base,signed,"reviewer")).json()==[]
+    assert c.post(publish,headers=h(base,signed,"lead","productpulse_review_lead"),json=pub).status_code==409
