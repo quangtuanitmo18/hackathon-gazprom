@@ -424,3 +424,109 @@ def test_three_fully_approved_and_explicitly_merged_tickets_form_volume_signal(a
     response = c.get("/internal/v1/trends", headers=h(base, signed, "reviewer-1"))
     assert response.status_code == 200 and response.json() == []
     assert store.audit(scope) == after_split
+
+
+def test_unverified_activity_requires_both_oidc_and_private_service_credential(api):
+    c, store, scope, keys, base, signed = api
+    endpoint = "/internal/v1/unverified-activity"
+    assert c.get(endpoint).status_code == 401
+    assert c.get(endpoint, headers=base).status_code == 401
+    assert c.get(endpoint, headers={"Authorization": "Bearer " + signed("reviewer")}).status_code == 401
+    assert c.get(endpoint, headers=h(base, signed, "intruder", "wrong-role")).status_code in (401, 403)
+    assert c.get(endpoint, headers=h(base, signed, "reviewer", tenant="other-tenant")).status_code in (401, 403)
+    assert c.get(endpoint, headers=h(base, signed, "reviewer")).status_code == 200
+    assert c.get(endpoint + "?window_hours=0", headers=h(base, signed, "reviewer")).status_code == 422
+    assert c.get(endpoint + "?limit=31", headers=h(base, signed, "reviewer")).status_code == 422
+    assert c.get(endpoint + "?scope_id=another", headers=h(base, signed, "reviewer")).status_code == 422
+
+
+def test_unverified_activity_is_only_an_evidence_pair_without_auto_merge_or_write(api):
+    from productpulse.data.canonical import CanonicalTicketV1, ticket_key
+
+    c, store, scope, keys, base, signed = api
+    now = datetime.now(timezone.utc)
+    ticket_keys = []
+    for name, minutes in (("activity-c", 12), ("activity-d", 25)):
+        payload = {
+            "source_system": "synthetic",
+            "source_ticket_id": name,
+            "provenance_id": "test",
+            "created_at": (now - timedelta(minutes=minutes)).isoformat(),
+            "body_redacted": "Сбой авторизации платежного шлюза HTTP 403",
+        }
+        response = c.post("/internal/v1/tickets", headers=base, json=payload)
+        assert response.status_code == 201, response.text
+        ticket_keys.append(ticket_key(CanonicalTicketV1(**payload)))
+
+    before = store.audit(scope)
+    response = c.get(
+        "/internal/v1/unverified-activity",
+        headers=h(base, signed, "reviewer-1"),
+    )
+    assert response.status_code == 200, response.text
+    matches = [
+        row for row in response.json()
+        if {row["ticket_key_a"], row["ticket_key_b"]} == set(ticket_keys)
+    ]
+    assert len(matches) == 1, response.json()
+    row = matches[0]
+    assert row["recent_pattern"] == "both_current"
+    assert row["current_member_count"] == 2
+    assert row["previous_member_count"] == 0
+    assert row["evidence_type"] == "lexical_candidate"
+    assert row["coverage_status"] == "unknown_coverage"
+    assert row["eligible_for_alert"] is False
+    assert "confidence" not in row
+    assert "incident_id" not in row
+    assert "body_redacted" not in row
+    assert store.audit(scope) == before
+    assert all(p.revision == 1 for p in store.read(scope, lambda reg: reg.list_active()))
+
+
+def test_lead_approved_unmerged_pair_not_in_unverified_activity(api):
+    from productpulse.data.canonical import CanonicalTicketV1, ticket_key
+
+    c, store, scope, keys, base, signed = api
+    now = datetime.now(timezone.utc)
+    pair = []
+    for name in ("approved-c", "approved-d"):
+        payload = {
+            "source_system": "synthetic", "source_ticket_id": name,
+            "provenance_id": "test",
+            "body_redacted": "Сбой авторизации платежного шлюза HTTP 403",
+            "created_at": (now - timedelta(minutes=5)).isoformat(),
+        }
+        r = c.post("/internal/v1/tickets", headers=base, json=payload)
+        assert r.status_code == 201, r.text
+        pair.append(ticket_key(CanonicalTicketV1(**payload)))
+
+    for who in ("first", "second"):
+        res = c.post(
+            "/internal/v1/reviews", headers=h(base, signed, who),
+            json={
+                "ticket_key_a": pair[0], "ticket_key_b": pair[1],
+                "label": "same_incident", "rationale": "Reviewed synthetic pair",
+                "operation_key": "activity-" + who,
+            },
+        )
+        assert res.status_code == 201, res.text
+    res = c.post(
+        "/internal/v1/reviews/approve",
+        headers=h(base, signed, "lead", "productpulse_review_lead"),
+        json={
+            "ticket_key_a": pair[0], "ticket_key_b": pair[1],
+            "reason": "Third-party confirmed link",
+            "operation_key": "activity-approved",
+        },
+    )
+    assert res.status_code == 201, res.text
+    response = c.get(
+        "/internal/v1/unverified-activity", headers=h(base, signed, "first"),
+    )
+    assert response.status_code == 200, response.text
+    assert all(
+        {row["ticket_key_a"], row["ticket_key_b"]} != set(pair)
+        for row in response.json()
+    )
+    # Approval is not a merge; see the separate confirmed Problem workflow.
+    assert len(store.read(scope, lambda reg: reg.list_active())) == 4
