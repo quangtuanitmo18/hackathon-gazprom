@@ -37,7 +37,6 @@ def test_repeat_ingest_is_deterministically_sanitized():
     assert sanitize_ticket(first)==first
 
 def test_source_ids_rejected_not_mangled_silently():
-    t=ticket("Обычный сбой",title="Вход",source_ticket_id="user@example.com") if False else None
     bad=CanonicalTicketV1(source_system="synthetic",source_ticket_id="user@example.com",
                            provenance_id="fixture",body_redacted="Ошибка сервера")
     try:sanitize_ticket(bad)
@@ -49,3 +48,9 @@ def test_raw_technical_logs_without_pii_remain_useful():
     clean=sanitize_ticket(t)
     assert "HTTP 403" in clean.body_redacted
     assert "2.1" in clean.body_redacted
+
+
+def test_common_phone_number_is_scrubbed_in_text():
+    clean=sanitize_ticket(ticket("Позвоните (478)345-1309 если ошибка HTTP 403"))
+    assert "(478)345-1309" not in (clean.body_redacted or "")
+    assert "HTTP 403" in (clean.body_redacted or "")
