@@ -1,6 +1,6 @@
 # ProductPulse AI — Intelligence Cup 2026
 
-> **Статус: concept / design / experiment planning.** Работающий прототип и измеренные результаты пока НЕ заявлены.
+> **Статус: направление архитектуры Hybrid AI Agent выбрано владельцем репозитория (ADR-001); согласование с командой и реализация ещё впереди.** Работающий прототип и измеренные результаты пока НЕ заявлены.
 
 Командный репозиторий для кейса «Искусственный интеллект» чемпионата **Intelligence Cup 2026 от «Газпром нефти»**. Цель — спроектировать проверяемого ИИ-агента, который превращает обращения пользователей цифровых продуктов в доказательные и своевременные сигналы для продуктовых команд.
 
@@ -24,6 +24,7 @@
 
 | Артефакт | Что читать |
 |---|---|
+| [ADR-001 — Hybrid AI Agent](docs/architecture/decisions/ADR-001-hybrid-ai-agent.md) | Выбранное архитектурное направление и trade-offs |
 | [Design spec](docs/superpowers/specs/2026-10-30-productpulse-system-design.md) | Архитектура, ограничения, альтернативы, бизнес-процесс |
 | [Requirements & unknowns](docs/requirements/requirements-and-assumptions.md) | Требования, предположения, вопросы наставникам |
 | [Data contracts](docs/architecture/data-contracts.md) | Сущности, инварианты, API/события |
@@ -40,6 +41,10 @@
 3. [Evaluation and business case](docs/superpowers/plans/2026-10-30-evaluation-and-business.md)
 
 **Важно:** планы — для обсуждения и утверждения. Они не являются отчётом о выполненных задачах или тестах.
+
+## Выбор архитектуры
+
+**Hybrid AI Agent** — выбранный владельцем репозитория вариант: deterministic ingestion и policy, ML/NLP для classification/retrieval/clustering, ограниченный evidence-based LLM workflow, human approval и измеряемая бизнес-ценность. Команда подтверждает детальный дизайн на архитектурном ревью 31.10.2026. См. [ADR-001](docs/architecture/decisions/ADR-001-hybrid-ai-agent.md).
 
 ## Техническая гипотеза
 
