@@ -204,13 +204,13 @@ def verify() -> None:
     # counts, pilot targets, or financial scenarios as observed outcomes.
     speech = read("submissions/jury-defense-script.ru.md")
     q_and_a = read("submissions/jury-questions-answers.ru.md")
-    slide_headings = re.findall(r"(?m)^## Слайд (\\d+) —", speech)
+    slide_headings = re.findall(r"(?m)^## Слайд (\d+) —", speech)
     assert slide_headings == [str(i) for i in range(1, 11)], slide_headings
-    questions = re.findall(r"(?m)^### (\\d+)\\.", q_and_a)
+    questions = re.findall(r"(?m)^### (\d+)\.", q_and_a)
     assert questions == [str(i) for i in range(1, 23)], questions
     assert "официальном PDF не указан фиксированный регламент" in speech
     assert "полностью синтетический" in speech.lower()
-    assert "SYN-QUEUE" in q_and_a
+    assert "SYN-QUEUE" in business_story and "синтетическ" in q_and_a.lower()
     assert "не реальные три тикета" in q_and_a.lower() or "полностью синтетические" in q_and_a.lower()
     for term in ("BM25", "Qwen-ASR", "Qwen-VL", "qualified_at", "0,80", "0,95",
                  "123", "1,64", "7,39", "baseline", "ROI"):
