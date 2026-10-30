@@ -62,9 +62,9 @@
 
 **Interfaces:** `SupportEventV1`, `RequestAnalysisV1`, `ProductSignalV1`, `ProductFeedbackV1` defined in spec, including `ingested_at` and `source_coverage`. Diagrams are conceptual; do not imply deployed endpoints.
 
-- [ ] **Step 1:** Write four Mermaid source diagrams with enterprise trust boundary, internal ASR/VL/Qwen, backend rule gates, source ID/retention and feedback; separate service *logic* from physical deployments.
-- [ ] **Step 2:** Add microservice table `component → why independent → CPU/GPU/IO → scaling → failure/fallback → evidence`.
-- [ ] **Step 3:** Add quantitative scenario **(not factual throughput)**: `N=40`, `tickets_per_agent_day=20`, `tickets/day=800`, `lambda=800/86400`; `share_calls=0.30`, `avg_call_min=3`, `audio_minutes/day=720`; define p95 peak factor and RTF throughput parameter instead of inventing GPU model/QPS.
+- [x] **Step 1:** Write four Mermaid source diagrams with enterprise trust boundary, internal ASR/VL/Qwen, backend rule gates, source ID/retention and feedback; separate service *logic* from physical deployments.
+- [x] **Step 2:** Add microservice table `component → why independent → CPU/GPU/IO → scaling → failure/fallback → evidence`.
+- [x] **Step 3:** Add quantitative scenario **(not factual throughput)**: `N=40`, `tickets_per_agent_day=20`, `tickets/day=800`, `lambda=800/86400`; `share_calls=0.30`, `avg_call_min=3`, `audio_minutes/day=720`; define p95 peak factor and RTF throughput parameter instead of inventing GPU model/QPS.
 - [ ] **Step 4:** Verify source diagrams render and text remains legible on 16:9 slides; cross-check both direction and names of data transfer against architecture; commit with source files.
 
 **Acceptance:** diagram shows correct PII trust boundary from raw media onward; no external egress; service count and sizing reasons trace to PDF rubric; all numeric capacities flagged illustrative.
@@ -82,7 +82,7 @@
 - [ ] **Step 1:** Specify allowlisted read tools for sanitized ticket text, ASR/VL, retrieval and aggregation; map role, allowed inputs, failure result, idempotency and evidence.
 - [ ] **Step 2:** Specify internal output-only draft and policy-gated digest/feedback tools; no arbitrary HTTP/SQL, OTP/password return, external provider call or autonomous account change.
 - [ ] **Step 3:** Create Russian system prompt annotated by role, trust boundary, classification axes, when to abstain, source citations, allowed tools and strict JSON examples for PDF #4 and #5.
-- [ ] **Step 4:** Write at least 12 adversarial/ambiguity scenarios: injection via phone ASR/OCR, missing source time, wrong tenant, empty transcript, duplicated call segments, #1 vs #2 same journey not incident, #3 single record/two symptoms, #4 urgent deadline, #6 credential request, #7 misleading SMS provider cause, source coverage unknown and no product owner route.
+- [x] **Step 4:** Write at least 12 adversarial/ambiguity scenarios: injection via phone ASR/OCR, missing source time, wrong tenant, empty transcript, duplicated call segments, #1 vs #2 same journey not incident, #3 single record/two symptoms, #4 urgent deadline, #6 credential request, #7 misleading SMS provider cause, source coverage unknown and no product owner route.
 - [ ] **Step 5:** Reviewer verifies each adversarial input has explicit expected safe outcome and no ungrounded diagnosis; commit.
 
 **Acceptance:** model cannot choose transport recipient, counts, notification rules or root cause without backend verification.
@@ -166,5 +166,9 @@
 - [x] Architecture tradeoffs, service load formulas and assumptions written: `docs/architecture/webneft-v2-architecture.md`.
 - [ ] Render and **visually inspect** source diagrams, correct any Mermaid parse or Cyrillic-layout errors; diagrams not yet considered final presentation assets.
 - [ ] Human editorial verification against original PDF and Webneft source assumptions.
-- [ ] Complete tasks for detailed prompt, KPI, economics and actual DOCX/PDF/PPTX deliverables.
+- [x] Initial Agent Tool contracts, Russian Qwen system prompt, separated strict JSON schemas and 20 test cases written; source-level checker passes, **no Qwen execution** claimed.
+- [ ] Independent review of Agent prompt/tool safety, evidence policy and 20 expected test outcomes.
+- [ ] Complete metrics/gold annotation, financial sensitivity and actual DOCX/PDF/PPTX deliverables.
 
+
+**Verification 2026-10-31:** [GitHub Actions run #41132189753](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41132189753) passed existing 15k, seven cases, 10-slide outline; subsequent document checker now additionally validates 4 Mermaid source/gallery synchronization, 20 case scenarios and 7 parseable example JSON blocks. CI with new checker must be verified at latest SHA separately. **Not a full Mermaid parser or visual render check.**
