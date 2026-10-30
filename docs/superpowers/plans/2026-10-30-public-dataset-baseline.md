@@ -40,11 +40,11 @@
 
 **Interfaces:**
 - `CanonicalTicket(source: str, source_id: str, text_redacted: str, created_at: datetime | None, source_label: str | None, product_id: str | None)`.
-- `parse_zenodo_rows(rows: list[dict], split: str) -> list[CanonicalTicket]`.
+- `parse_zenodo_split(x_rows: list[dict], y_rows: list[dict], split: str) -> list[CanonicalTicket]` (join text and category by original source ID; fail on unmatched IDs).
 - `parse_mendeley_rows(rows: list[dict]) -> list[CanonicalTicket]`.
 - `build_provenance_manifest(source_url: str, license_id: str, file_path: Path) -> dict`.
 
-- [ ] Step 1: Write tests that verify exact field mapping, unknown label preservation, invalid blank IDs, timezone null handling, and sha256 of a known fixture.
+- [ ] Step 1: Write tests that verify exact field mapping, X/y ID joins (misaligned order and missing IDs must fail), unknown label preservation, invalid blank IDs, timezone null handling, and sha256 of a known fixture.
 - [ ] Step 2: Run `pytest tests/data/test_adapters.py tests/data/test_manifest.py -v`; Expected: FAIL due missing implementation.
 - [ ] Step 3: Implement minimal models/adapters/manifest and ignore `data/raw/`, `data/processed/`, `*.env`, exported experiment outputs with personal content.
 - [ ] Step 4: Run same pytest command; Expected: PASS. Run `git check-ignore data/raw/placeholder.csv`; Expected: ignored.
