@@ -1,0 +1,152 @@
+name: Dashboard Next.js + PostgreSQL E2E smoke
+
+on:
+  push:
+    branches: [feat/problem-dashboard]
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/dashboard-smoke.yml'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/web/**'
+
+permissions:
+  contents: read
+
+jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: productpulse
+          POSTGRES_PASSWORD: local_ci_only
+          POSTGRES_DB: productpulse_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd=pg_isready
+          --health-interval=5s --health-timeout=5s --health-retries=10
+    env:
+      DATABASE_URL: postgresql+psycopg://productpulse:local_ci_only@127.0.0.1:5432/productpulse_test
+      PRODUCTPULSE_SCOPE_ID: e2e-demo
+      PRODUCTPULSE_INTERNAL_TOKEN: ci-only-secret-do-not-use-in-production-12345
+      PRODUCTPULSE_BACKEND_URL: http://127.0.0.1:8000
+      DASHBOARD_USERNAME: operator
+      DASHBOARD_PASSWORD: ci-demo-password-not-for-production
+      NEXT_TELEMETRY_DISABLED: '1'
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install backend and database tooling
+        run: python -m pip install -e '.[dev,storage,api]'
+      - name: Migrate actual PostgreSQL 16
+        run: alembic upgrade head
+      - name: Run Uvicorn internal backend
+        run: |
+          python -m uvicorn productpulse.api.app:app_from_env --factory --host 127.0.0.1 --port 8000 >/tmp/productpulse-backend.log 2>&1 &
+          echo $! > /tmp/productpulse-backend.pid
+          python - <<'PY'
+          import time, urllib.request
+          for _ in range(50):
+              try:
+                  with urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2) as response:
+                      if response.status == 200: break
+              except Exception: time.sleep(0.2)
+          else: raise SystemExit('Uvicorn health check failed')
+          PY
+      - name: Seed one synthetic Russian ticket with real FastAPI and DB
+        run: |
+          python - <<'PY'
+          import json,os,urllib.request
+          body=json.dumps({
+            'source_system':'synthetic','source_ticket_id':'RU-401',
+            'provenance_id':'github-ci-synthetic',
+            'body_redacted':'Синтетическая ошибка авторизации HTTP 403',
+            'product_id':'erp','component_id':'auth','reported_version':'2.1',
+            'error_codes':['HTTP 403']
+          }).encode()
+          req=urllib.request.Request(
+              'http://127.0.0.1:8000/internal/v1/tickets',
+              data=body,headers={
+                  'Content-Type':'application/json',
+                  'X-Internal-Token':os.environ['PRODUCTPULSE_INTERNAL_TOKEN']
+              },method='POST')
+          with urllib.request.urlopen(req,timeout=10) as r:
+              created=json.load(r)
+              assert r.status==201 and created['problem_id']=='PRB-000001',created
+          print('PASS seeded synthetic ticket as PRB-000001')
+          PY
+      - name: Install OSS UI dependencies
+        working-directory: apps/web
+        run: npm install --no-audit --no-fund
+      - name: Run front-end unit tests
+        working-directory: apps/web
+        run: npm test
+      - name: TypeScript typecheck
+        working-directory: apps/web
+        run: npm run typecheck
+      - name: Next.js production build
+        working-directory: apps/web
+        run: npm run build
+      - name: Launch Next.js frontend
+        working-directory: apps/web
+        run: |
+          npm run start >/tmp/productpulse-dashboard.log 2>&1 &
+          echo $! > /tmp/productpulse-dashboard.pid
+          python - <<'PY'
+          import time,urllib.error,urllib.request
+          for _ in range(70):
+              try:
+                  with urllib.request.urlopen('http://127.0.0.1:3000/healthz',timeout=2) as r:
+                      if r.status==200:break
+              except Exception:time.sleep(0.25)
+          else:raise SystemExit('Next.js did not become ready')
+          PY
+      - name: Real HTTP smoke — auth, seeded data, detail, audit, token secrecy
+        run: |
+          python - <<'PY'
+          import base64,os,urllib.error,urllib.request
+          base='http://127.0.0.1:3000'
+          user=os.environ['DASHBOARD_USERNAME']
+          pwd=os.environ['DASHBOARD_PASSWORD']
+          h={'Authorization':'Basic '+base64.b64encode((user+':'+pwd).encode()).decode()}
+          def get(path,headers=None):
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(base+path,headers=headers or {}),timeout=15) as r:
+                      return r.status,r.read(500000).decode('utf-8','replace'),r.headers
+              except urllib.error.HTTPError as e:
+                  return e.code,e.read(500000).decode('utf-8','replace'),e.headers
+          status,_,head=get('/')
+          assert status==401,(status,head)
+          assert 'Basic' in head.get('WWW-Authenticate',''),head
+          status,_,_=get('/',{'Authorization':'Basic '+base64.b64encode(b'operator:wrong').decode()})
+          assert status==401,status
+          status,home,_=get('/',h)
+          assert status==200 and 'PRB-000001' in home and 'ProductPulse' in home, status
+          status,detail,_=get('/problems/PRB-000001',h)
+          assert status==200 and 'RU-401' in detail,status
+          status,audit,_=get('/audit',h)
+          assert status==200 and 'ticket_registered' in audit,status
+          for page in (home,detail,audit):
+              assert os.environ['PRODUCTPULSE_INTERNAL_TOKEN'] not in page
+              assert os.environ['DASHBOARD_PASSWORD'] not in page
+          print('PASS: auth 401/200, real seeded Problem detail, audit, no tokens leaked')
+          PY
+      - name: Server stderr on failure (redact credentials)
+        if: failure()
+        run: |
+          echo 'Backend errors:'
+          grep -E 'Traceback|ERROR|Exception' /tmp/productpulse-backend.log 2>/dev/null | tail -20 || true
+          echo 'Dashboard errors:'
+          grep -E 'Error:|ERROR|Exception' /tmp/productpulse-dashboard.log 2>/dev/null | tail -20 || true
