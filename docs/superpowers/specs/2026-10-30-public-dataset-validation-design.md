@@ -1,6 +1,6 @@
 # Public Dataset Discovery and Validation — Design Spec
 
-**Status:** PROPOSED FOR REVIEW — research completed, ingestion/benchmark implementation not approved
+**Status:** APPROVED FOR TASK 1 by repository owner (2026-10-30); experimental outcomes pending.
 **Date:** 2026-10-30
 **Parent architecture:** [ProductPulse Hybrid AI Agent](2026-10-30-productpulse-system-design.md)
 **Catalog:** [Candidate data sources](../../data/dataset-catalog.md)
@@ -28,7 +28,7 @@ A. **One large synthetic ticket dataset:** quick and complete fields; fails empi
 B. **One multilingual ticket CSV:** easy classification/routing demo; insufficient for incident time/replay ground truth, may have NC license.
 C. **Two complementary real datasets + small explicit Russian fixtures (recommended):** independent classification and process/replay experiments, inspectable domain gaps. Requires separate adapters and careful claims.
 
-**Preferred approach C** based on user goal of reproducibility, pending approval to implement.
+**Selected approach C** by repository owner on 2026-10-30; begin Task 1 under TDD, no measured results implied.
 
 ## Technical design
 A: Zenodo 7648117, use preserved author split. Normalize ticket text to redacted internal `Ticket`; label taxonomy remains source-specific. B: Mendeley btm76zndnt v3, preserve event timestamps, assignee and project; only reporter-authored text can be used for arrival-time features when it existed. For HF processed B, note only 357 message-bearing issues. Annotation fixture set C is synthetic and exclusively for behavior regression tests.
