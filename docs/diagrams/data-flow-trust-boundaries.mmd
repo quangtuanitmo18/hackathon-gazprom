@@ -34,7 +34,8 @@ flowchart TB
   ING -.-> DBASE
   AGG -.-> DBASE
   DELIVERY -.-> DBASE
-  SAN -.->|"не передавать"| EXT
+  %% NO EDGE to EXT by design: external LLM, Internet and tracker API are forbidden.
+  %% Absence of a connection must be enforced by enterprise network egress policy.
   classDef blocked fill:#ffe3e3,stroke:#bf4444,color:#782020;
   classDef guard fill:#fff2d9,stroke:#a66b17,color:#4d3210;
   class SAN,POLICY guard;
