@@ -1,13 +1,13 @@
-# Webneft Intelligence Cup V2 — Evidence-First Product Feedback Agent
+# Gazprom Neft Digital Products Intelligence Cup V2 — Evidence-First Product Feedback Agent
 
 **Status: APPROACH C (Hybrid evidence-first, internal Qwen + deterministic tools) APPROVED BY USER on 2026-10-31.** Detailed diagram boundaries, tool interfaces, thresholds and business assumptions remain proposed pending review; this does **not** approve app implementation, merging, deploying or live data use.
 **Inputs:** official 7-page case PDF (primary), 7 user-ticket descriptions (PDF p. 6), user-provided DeepSeek analysis (secondary), [evidence audit](../../research/deepseek-webneft-evidence-audit.md) with dated historical public sources. **Do not mistake an old article or DeepSeek root-cause guess for confirmed current Webneft product behavior.**
 
 ## Intent and constraints
 
-**Business goal:** detect recurring *questions, enhancement wishes, non-critical friction* from support and quickly deliver an actionable, evidence-backed digest to the appropriate internal product team without additional support-staff reporting burden. Failure means building an elaborate incident tracker or classifier whose product team never uses its reports.
+**Business goal:** detect recurring *questions, enhancement wishes, non-critical friction* across the company's many internal and external digital products from support and quickly deliver an actionable, evidence-backed digest to the appropriate internal product team without additional support-staff reporting burden. Failure means building an elaborate incident tracker or classifier whose product team never uses its reports.
 
-**PDF facts:** ~40 support managers across products (not RPS); one ticket system storing call recordings, tickets and attachments for ~1 year; internal models recorded as **“Qwen 3.8”, Qwen-ASR, Qwen-VL** with unspecified endpoints/version; **no external LLM or external API calls**; financial model does not need to price internal inference, but implementation complexity is a real tradeoff. Seven Webneft examples are narrative illustrations and **not** same-incident ground truth.
+**PDF facts:** ~40 support managers across products (not RPS); one ticket system storing call recordings, tickets and attachments for ~1 year; internal models recorded as **“Qwen 3.8”, Qwen-ASR, Qwen-VL** with unspecified endpoints/version; **no external LLM or external API calls**; financial model does not need to price internal inference, but implementation complexity is a real tradeoff. Webneft is one illustrative product, not the deployment scope. Seven Webneft examples are narrative illustrations and **not** same-incident ground truth.
 
 **Submission contract:** main Russian DOCX/DOC/PDF answering items 1–4,6 ≤15,000 chars; mandatory item 5 a separate `.md`; ~10 slides; optional honest AI Footnotes. These are the primary deliverables. Source code is optional.
 
@@ -61,7 +61,11 @@ ProductFeedbackV1 {
 }
 ```
 
-Fields are **proposed**, not claimed existing in Webneft. Source `ingested_at` is captured on our side when the record is observed, and is not an invented retroactive field in the company's DB.
+Fields are **proposed**, not claimed existing in any Gazprom Neft product. The backend supplies an authorized `product_id` plus its `taxonomy_version`, allowed journey/symptom code lists, data access and a product→team registry; model cannot invent a cross-product category or recipient. Source `ingested_at` is captured on our side when the record is observed, and is not an invented retroactive field in the company's DB.
+
+## Multi-product routing and scoped taxonomy (mandatory)
+
+The corporate digital-products catalog, not the model, resolves `scope_id + product_id` and fetches `taxonomy_version` plus per-product allowed journey/symptom codes. Common `request_intent` is product-independent; `business_journey` and `symptom_codes` are **product-specific allowlists**. Retrieval, dedup, source completeness and counts use `scope_id + product_id` by default. Unknown product, unavailable taxonomy or unknown owning team → `unknown`/abstain/manual triage. Cross-product thematic aggregation requires a separately approved normalized taxonomy, authorization and human-validated usefulness; never join all products using Webneft fuel categories.
 
 ## Webneft taxonomy examples and non-inferences
 
