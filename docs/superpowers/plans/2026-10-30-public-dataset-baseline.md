@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** DRAFT — await design approval before implementation.
+**Status:** TASK 1 APPROVED AND LOCALLY VERIFIED (2026-10-30); Tasks 2 and 3 remain pending.
 **Goal:** Build reproducible, legally sourced local ticket dataset adapters and a measured classification baseline before organizer data is available.
 
 **Architecture:** Two independent adapters for Zenodo v2 classification and Mendeley v3 process records, with source provenance and leakage-safe transforms. A minimal sklearn baseline plus a separate benchmark runner produces auditable results; Russian synthetic cases only test behavior.
@@ -30,6 +30,8 @@
 
 ### Task 1: Provenance manifest and safe local ingestion
 
+**Verification:** 21 unit tests passed locally. See [Task 1 evidence](../../evaluation/task1-verification.md). Original public CSVs have not been profiled and GitHub CI is pending.
+
 **Files:**
 - Create: `.gitignore`
 - Create: `src/productpulse/data/schema.py`
@@ -44,11 +46,11 @@
 - `parse_mendeley_rows(rows: list[dict]) -> list[CanonicalTicket]`.
 - `build_provenance_manifest(source_url: str, license_id: str, file_path: Path) -> dict`.
 
-- [ ] Step 1: Write tests that verify exact field mapping, X/y ID joins (misaligned order and missing IDs must fail), unknown label preservation, invalid blank IDs, timezone null handling, and sha256 of a known fixture.
-- [ ] Step 2: Run `pytest tests/data/test_adapters.py tests/data/test_manifest.py -v`; Expected: FAIL due missing implementation.
-- [ ] Step 3: Implement minimal models/adapters/manifest and ignore `data/raw/`, `data/processed/`, `*.env`, exported experiment outputs with personal content.
-- [ ] Step 4: Run same pytest command; Expected: PASS. Run `git check-ignore data/raw/placeholder.csv`; Expected: ignored.
-- [ ] Step 5: Commit `feat(data): validate ticket provenance and dataset adapters`.
+- [x] Step 1: Write tests that verify exact field mapping, X/y ID joins (misaligned order and missing IDs must fail), unknown label preservation, invalid blank IDs, timezone null handling, and sha256 of a known fixture.
+- [x] Step 2: Run `pytest tests/data/test_adapters.py tests/data/test_manifest.py -v`; Expected: FAIL due missing implementation.
+- [x] Step 3: Implement minimal models/adapters/manifest and ignore `data/raw/`, `data/processed/`, `*.env`, exported experiment outputs with personal content.
+- [x] Step 4: Run same pytest command; Expected: PASS. Run `git check-ignore data/raw/placeholder.csv`; Expected: ignored.
+- [x] Step 5: Commit `feat(data): validate ticket provenance and dataset adapters`.
 
 ### Task 2: Zenodo classification baseline with immutable splits
 

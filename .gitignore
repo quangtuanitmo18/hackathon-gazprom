@@ -1,0 +1,34 @@
+# Original and derived datasets must not be committed
+/data/raw/
+/data/processed/
+/data/private/
+/data/exports/
+/outputs/
+/eval/results/
+/reports/private/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.env
+*.key
+*.pem
+
+# Python and tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+.envrc
+*.egg-info/
+dist/
+build/
+
+# Superpowers local execution state
+.superpowers/
+.worktrees/
