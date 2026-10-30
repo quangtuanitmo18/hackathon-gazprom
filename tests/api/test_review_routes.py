@@ -201,3 +201,28 @@ def test_lead_approval_does_not_replay_a_revoked_link_after_split(api):
            headers=h(base,signed,"lead","productpulse_review_lead"),json=payload)
     assert again.status_code==409
     assert not store.read(scope,lambda r:r.active_approvals())
+
+
+def test_review_evidence_requires_service_and_reviewer_token_and_scope(api):
+    c,store,scope,keys,base,signed=api
+    assert c.get("/internal/v1/review-tickets").status_code==401
+    assert c.get("/internal/v1/review-tickets",headers=base).status_code==401
+    assert c.get("/internal/v1/review-tickets",
+                 headers=h(base,signed,"bad",tenant="other-scope")).status_code in (401,403)
+    resp=c.get("/internal/v1/review-tickets",headers=h(base,signed,"reviewer-A"))
+    assert resp.status_code==200,resp.text
+    rows=resp.json()
+    assert len(rows)==2
+    assert set(row["ticket_key"] for row in rows)==set(keys)
+    assert all(row["body_redacted"]=="Сбой ERP HTTP 403" for row in rows)
+    assert all("pseudonymous_user_id" not in row for row in rows)
+    assert all(row["source_system"]=="synthetic" for row in rows)
+
+
+def test_review_evidence_is_bounded_and_does_not_allow_client_scope_override(api):
+    c,store,scope,keys,base,signed=api
+    headers=h(base,signed,"reviewer-A")
+    assert c.get("/internal/v1/review-tickets?limit=1",headers=headers).status_code==200
+    assert len(c.get("/internal/v1/review-tickets?limit=1",headers=headers).json())==1
+    assert c.get("/internal/v1/review-tickets?limit=501",headers=headers).status_code==422
+    assert c.get("/internal/v1/review-tickets?scope_id=other",headers=headers).status_code==422
