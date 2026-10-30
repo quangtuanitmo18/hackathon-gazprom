@@ -93,6 +93,44 @@ export function ReviewConsole({displayName}:{displayName:string}){
     {loading&&<div className="review-message">Загрузка обращений и статусов…</div>}
     {error&&<div className="failure-panel" role="alert">{error}</div>}
     {success&&<div className="review-success" role="status">{success}</div>}
+    <section className="review-recommendations" aria-label="Рекомендованные пары">
+      <div className="surface-heading">
+        <div>
+          <h2>Рекомендованные пары</h2>
+          <p>BM25: лексическое сходство для очереди экспертов, не вероятность общего root cause</p>
+        </div>
+        <span className="section-count">{data?.candidates.length??0} кандидатов</span>
+      </div>
+      {data?.candidates.length ? (
+        <div className="candidate-items">
+          {data.candidates.slice(0,10).map((candidate,i)=>(
+            <button
+              type="button"
+              key={candidate.ticket_key_a+"|"+candidate.ticket_key_b}
+              className="candidate-option"
+              aria-label={`Предложение ${i+1}: выбрать пару тикетов`}
+              onClick={()=>{setFirst(candidate.ticket_key_a);setSecond(candidate.ticket_key_b);setError(null);setSuccess(null);}}
+            >
+              <span className="candidate-index">{String(i+1).padStart(2,"0")}</span>
+              <span className="candidate-content">
+                <strong>{candidate.ticket_key_a} ↔ {candidate.ticket_key_b}</strong>
+                <small>
+                  {candidate.signals.map(signal=>({
+                    lexical_overlap:"Общие термины",same_product:"Один продукт",
+                    same_component:"Один компонент",shared_error_code:"Общий код ошибки",
+                  })[signal]||signal).join(" · ")}
+                </small>
+              </span>
+              <span className="candidate-rank">BM25 rank #{candidate.rank}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="candidate-empty">
+          Система пока не нашла пар с пересечением терминов. Можно выбрать тикеты вручную ниже.
+        </div>
+      )}
+    </section>
     <div className="review-selectors">
       <label>Обращение A <select value={first} onChange={e=>setFirst(e.target.value)} aria-label="Первое обращение">
         <option value="">Выберите тикет…</option>
