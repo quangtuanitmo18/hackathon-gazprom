@@ -119,6 +119,13 @@ class ProblemRegistry:
     def active_approvals(self) -> tuple[PairApproval, ...]:
         return tuple(self._approved[key] for key in sorted(self._approved))
 
+    def list_active(self) -> tuple[ProblemRecord, ...]:
+        """Read-only active Problem snapshots for scoped dashboard queries."""
+        return tuple(
+            self._problems[pid] for pid in sorted(self._problems)
+            if self._problems[pid].status == "active"
+        )
+
     def approve_pair(
         self, a: CanonicalTicketV1, b: CanonicalTicketV1,
         first: PairAnnotation, second: PairAnnotation,
