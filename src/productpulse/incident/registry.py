@@ -139,6 +139,13 @@ class ProblemRegistry:
             if self._problems[pid].status == "active"
         )
 
+    def list_review_tickets(self, *, limit: int = 50, offset: int = 0) -> tuple[tuple[str, CanonicalTicketV1], ...]:
+        """Bounded read-only trusted reviewer input, not an incident verdict."""
+        if not 1 <= limit <= 50 or offset < 0:
+            raise ValueError("invalid review ticket page")
+        keys = sorted(self._tickets)
+        return tuple((key, self._tickets[key]) for key in keys[offset:offset + limit])
+
     def approve_pair(
         self, a: CanonicalTicketV1, b: CanonicalTicketV1,
         first: PairAnnotation, second: PairAnnotation,
