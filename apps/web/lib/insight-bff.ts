@@ -65,8 +65,11 @@ async function upstream<T>(
 ):Promise<T>{
   // The dynamic suffix is checked against the trusted action schema BEFORE
   // this helper is called. Never accept a caller-controlled URL/host.
-  if(!/^\/internal\/v1\/insight-proposals(?:\/PRB-[0-9]{6,}\/\b(?:approve|mock-publish))?$/.test(path)
-     && !/^\/internal\/v1\/review-tickets\?limit=50&offset=(?:0|[1-9][0-9]*)$/.test(path))
+  const listPath=path==="/internal/v1/insight-proposals";
+  const actionPath=/^\\/internal\\/v1\\/insight-proposals\\/PRB-[0-9]{6,}\\/(?:approve|mock-publish)$/.test(path);
+  const evidencePath=/^\\/internal\\/v1\\/review-tickets\\?limit=50&offset=(?:0|[1-9][0-9]*)$/.test(path);
+  if(!((method==="GET"&&(listPath||evidencePath)) ||
+       (method==="POST"&&actionPath)))
     throw new Error("insight upstream path not allowlisted");
   const url=new URL(path,config.baseUrl);
   if(url.origin!==config.baseUrl||url.hash||url.username||url.password)
@@ -130,12 +133,14 @@ export async function submitInsightAction(
   const validated=actionSchema.safeParse(body);
   if(!validated.success)throw new Error("invalid insight action payload");
   const payload=validated.data;
-  return upstream(config,access,
-    `/internal/v1/insight-proposals/${payload.problem_id}/${action}`,
-    "POST",action==="approve"?approvalSchema:mockIssueSchema,{
-      expected_revision:payload.expected_revision,
-      evidence_digest:payload.evidence_digest,
-      reason:payload.reason,
-      operation_key:payload.operation_key,
-    },transport);
+  const path=`/internal/v1/insight-proposals/${payload.problem_id}/${action}`;
+  const requestBody={
+    expected_revision:payload.expected_revision,
+    evidence_digest:payload.evidence_digest,
+    reason:payload.reason,
+    operation_key:payload.operation_key,
+  };
+  if(action==="approve")
+    return upstream(config,access,path,"POST",approvalSchema,requestBody,transport);
+  return upstream(config,access,path,"POST",mockIssueSchema,requestBody,transport);
 }
