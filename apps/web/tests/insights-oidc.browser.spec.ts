@@ -35,7 +35,7 @@ test("real Keycloak: 2 reviewed tickets become one lead-only proposal then MOCK 
   await viewer.page.getByRole("textbox",{name:"Причина решения ведущего эксперта"})
     .fill("Attempt to approve as ordinary reviewer");
   await viewer.page.getByRole("button",{name:"Одобрить предложение (без публикации)"}).click();
-  await expect(viewer.page.getByRole("alert")).toContainText("HTTP 401");
+  await expect(viewer.page.locator(".failure-panel[role=alert]")).toContainText("HTTP 401");
   const data=await viewer.page.evaluate(async()=>await(await fetch("/api/insights")).json());
   expect(data.proposals).toHaveLength(1);
   expect(data.proposals[0].approval_status).toBe("pending");
