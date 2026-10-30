@@ -40,7 +40,7 @@ class ReviewProgress:
     pair_id: str
     status: Literal[
         "awaiting_first_review", "awaiting_second_review", "ready_for_lead",
-        "disputed", "uncertain", "classified"
+        "disputed", "uncertain", "classified", "approved"
     ]
     reviewer_ids: tuple[str, ...] = ()
 
@@ -193,7 +193,9 @@ class ProblemRegistry:
 
     def _review_progress(self, pair_id: str) -> ReviewProgress:
         reviews = self._reviews.get(pair_id, ())
-        if not reviews:
+        if pair_id in self._approved:
+            status = "approved"
+        elif not reviews:
             status = "awaiting_first_review"
         elif len(reviews) == 1:
             status = "awaiting_second_review"
@@ -215,7 +217,7 @@ class ProblemRegistry:
     def review_statuses(self) -> tuple[ReviewProgress, ...]:
         """Only review metadata; no ticket contents or claims of gold accuracy."""
         return tuple(self._review_progress(pair) for pair in sorted(
-            set(self._reviews) | set(self._revoked_at)
+            set(self._reviews) | set(self._revoked_at) | set(self._approved)
         ))
 
     def submit_review(
