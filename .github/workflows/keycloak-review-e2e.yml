@@ -10,6 +10,14 @@ on:
       - 'src/productpulse/incident/**'
       - 'src/productpulse/insights/**'
       - 'tests/e2e/**'
+  pull_request:
+    paths:
+      - '.github/workflows/keycloak-review-e2e.yml'
+      - 'apps/web/**'
+      - 'src/productpulse/api/**'
+      - 'src/productpulse/incident/**'
+      - 'src/productpulse/insights/**'
+      - 'tests/e2e/**'
   workflow_dispatch:
 
 permissions:
