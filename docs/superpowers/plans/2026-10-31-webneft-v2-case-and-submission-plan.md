@@ -96,10 +96,10 @@
 
 **Interfaces:** label sets `topic`, `same_problem`, `actionable`, `routing`; `qualified_at`, `sent_at`, `ingested_at` clocks; independent adjudication & confidence intervals.
 
-- [ ] **Step 1:** Define two human labelers + arbiter, sampling across channels/time/product, identity/time split, per-class breakdown; 7 PDF examples treated as illustrations only.
-- [ ] **Step 2:** Specify p50/p90 Time-to-Product-Insight, actionable precision, topic recall, routing accuracy, support reporting effort, feedback closure, unknown coverage and duplicate delivery.
-- [ ] **Step 3:** Define retrospective baseline study with fallback if historical `qualified_at` or reporting logs unavailable.
-- [ ] **Step 4:** State staged release: offline → shadow (no delivery) → policy-approved internal digest → monitored pilot; proposed thresholds (not measured): actionable precision ≥0.80, routing accuracy ≥0.95, p90 qualified→sent ≤4h; no worse urgent support SLA.
+- [x] **Step 1:** Define two human labelers + arbiter, sampling across channels/time/product, identity/time split, per-class breakdown; 7 PDF examples treated as illustrations only.
+- [x] **Step 2:** Specify p50/p90 Time-to-Product-Insight, actionable precision, topic recall, routing accuracy, support reporting effort, feedback closure, unknown coverage and duplicate delivery.
+- [x] **Step 3:** Define retrospective baseline study with fallback if historical `qualified_at` or reporting logs unavailable.
+- [x] **Step 4:** State staged release: offline → shadow (no delivery) → policy-approved internal digest → monitored pilot; proposed thresholds (not measured): actionable precision ≥0.80, routing accuracy ≥0.95, p90 qualified→sent ≤4h; no worse urgent support SLA.
 - [ ] **Step 5:** Independent reviewer traces each KPI to collection event/source and business value, then commit.
 
 **Acceptance:** no precision/recall or latency sourced from synthetic data masquerades as measured performance; business and safety gates both present.
@@ -112,10 +112,10 @@
 
 **Interfaces:** `annual_value=N*D*12*(minutes_saved/60)*adoption*hour_value`; monetization coefficient `k`, discount rate `r`, implementation cost `C` (unknown). Final scope respects the PDF: expense pricing is **not** demanded, but a break-even ceiling is useful.
 
-- [ ] **Step 1:** Freeze assumption table with known `N=40` and illustrative `D=22`, 5/15/25 minutes, 25/50/75% adoption and 900/1000/1200 RUB per hour. Add observed-baseline gap and reason each is scenario-only.
-- [ ] **Step 2:** Independently recalculate annual and 3-year values, add `k` (realizable value factor), discount sensitivity and break-even cost ceiling; distinguish saved capacity from headcount reductions and revenue.
-- [ ] **Step 3:** Show non-AI manual-reporting alternative and minimum benefit needed to justify ASR/VL complexity; discuss inflation/wage trends as assumptions, **not future facts**.
-- [ ] **Step 4:** Re-run submission length validator and commit.
+- [x] **Step 1:** Freeze assumption table with known `N=40` and illustrative `D=22`, 5/15/25 minutes, 25/50/75% adoption and 900/1000/1200 RUB per hour. Add observed-baseline gap and reason each is scenario-only.
+- [x] **Step 2:** Independently recalculate annual and 3-year values, add `k` (realizable value factor), discount sensitivity and break-even cost ceiling; distinguish saved capacity from headcount reductions and revenue.
+- [x] **Step 3:** Show non-AI manual-reporting alternative and minimum benefit needed to justify ASR/VL complexity; discuss inflation/wage trends as assumptions, **not future facts**.
+- [x] **Step 4:** Re-run submission length validator and commit.
 
 **Acceptance:** no ROI/payback reported as fact without actual cost and causal measurement.
 
@@ -168,7 +168,10 @@
 - [ ] Human editorial verification against original PDF and Webneft source assumptions.
 - [x] Initial Agent Tool contracts, Russian Qwen system prompt, separated strict JSON schemas and 20 test cases written; source-level checker passes, **no Qwen execution** claimed.
 - [ ] Independent review of Agent prompt/tool safety, evidence policy and 20 expected test outcomes.
-- [ ] Complete metrics/gold annotation, financial sensitivity and actual DOCX/PDF/PPTX deliverables.
+- [x] Evaluation methodology, independent labeling protocol, staged release gates, separate KPI file, financial scenario input/PV model and source-based critical self-review written; calculated by CI. **No real model/customer data has been tested.**
+- [ ] Independent business/editorial review, external baseline/gold evaluation and actual final DOCX/PDF/PPTX still outstanding.
 
 
 **Verification 2026-10-31:** [GitHub Actions run #41132189753](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41132189753) passed existing 15k, seven cases, 10-slide outline; subsequent document checker now additionally validates 4 Mermaid source/gallery synchronization, 20 case scenarios and 7 parseable example JSON blocks. CI with new checker must be verified at latest SHA separately. **Not a full Mermaid parser or visual render check.**
+
+**Phase 4–5 execution note (2026-10-31):** independent arithmetic + source-contract CI [run 41133287382](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41133287382) SUCCESS on finance validator commit `79332a0`; post-review changes require a fresh final-HEAD run. [Critical self-review](../../reviews/2026-10-31-evaluation-economics-self-review.md) identifies and fixes metric denominator bias, time censoring, conditional PV and logical service-count mismatch. This is NOT independent approval.
