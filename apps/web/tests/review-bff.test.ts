@@ -34,7 +34,7 @@ test("fetch scoped evidence forwards both tokens privately to fixed upstream ori
     return new Response(JSON.stringify([]),{status:200,headers:{"Content-Type":"application/json"}});
   }) as typeof fetch;
   const results=await fetchReviewerData(cfg,jwt.reviewerAccessToken,transport);
-  assert.deepEqual(results,{tickets:[],reviews:[]});
+  assert.deepEqual(results,{tickets:[],reviews:[],candidates:[]});
   assert.equal(record.auth,"Bearer "+jwt.reviewerAccessToken);
   assert.equal(record.service,cfg.token);
   assert.ok(record.url?.startsWith(cfg.baseUrl+"/internal/v1/"));
@@ -71,4 +71,22 @@ test("malformed Origin is denied with 403 rather than internal error",()=>{
     assert.equal((e as {status:number}).status,403);
     return true;
   });
+});
+
+test("server validates candidate queue schema, never accepts fabricated confidence",async()=>{
+  const fake={ticket_key_a:"synthetic1:a",ticket_key_b:"synthetic1:b",rank:1,signals:["lexical_overlap"]};
+  const transport=(async(input:RequestInfo|URL)=>{
+    const url=String(input);
+    return new Response(JSON.stringify(url.includes("review-candidates")?[fake]:[]),
+      {status:200,headers:{"Content-Type":"application/json"}});
+  }) as typeof fetch;
+  const results=await fetchReviewerData(cfg,jwt.reviewerAccessToken,transport);
+  assert.equal(results.candidates.length,1);
+  assert.deepEqual(results.candidates[0],fake);
+  const fabricated=(async(input:RequestInfo|URL)=>{
+    const url=String(input);
+    return new Response(JSON.stringify(url.includes("review-candidates")?[{...fake,confidence:0.99}]:[]),
+      {status:200,headers:{"Content-Type":"application/json"}});
+  }) as typeof fetch;
+  await assert.rejects(fetchReviewerData(cfg,jwt.reviewerAccessToken,fabricated),/invalid upstream/);
 });
