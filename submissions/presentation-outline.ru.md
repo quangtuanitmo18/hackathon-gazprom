@@ -7,7 +7,7 @@
 | 1 | «От обращения пользователя к развитию продукта» | Problem statement + идея AI Product Feedback Loop | Цель кейса |
 | 2 | «Почему обратная связь теряется» | Business flow: звонок/тикет → ручная передача; **нет измеренного baseline** | Постановка |
 | 3 | «Webneft: 7 типовых обращений» | Карточки 7 случаев по 5–6 business topics; №1+2 и №6+7 не one incident | Конкретный кейс |
-| 4 | «Архитектура во внутреннем контуре» | 4 логических компонента, ticket DB, Qwen-ASR, Qwen-VL, text model, outbox | Пункт 1 |
+| 4 | «Архитектура во внутреннем контуре» | 5 логических блоков / 3 процесса MVP, ticket DB, Qwen-ASR/VL, Qwen text, deterministic aggregation, outbox | Пункт 1 |
 | 5 | «Инструменты и безопасные решения AI» | Allowlisted tools, scope, dedup, no external egress, human review based on risk | Пункт 2 |
 | 6 | «Промпт и evidence-grounded результат» | Пример JSON из Webneft booking с `recurrence_confirmed=false` | Пункт 3 |
 | 7 | «Не кластеризовать всё подряд» | 3 слоя: same-symptom candidate, related business topic, actionable product signal | Главная методическая идея |
