@@ -58,3 +58,8 @@
 A quality evaluator cannot use the same generated insight to create its own correct labels. Product team feedback informs usefulness but **not independently ground truth for every unreviewed item**. Freeze annotation rubric before evaluation. Record sampling design, missingness, reviewed proportions, baseline rules/BM25, Qwen model version and policy version.
 
 **Approval gates (not completed):** source owner+privacy policy, independent annotators and adjudicator, held-out metrics with CI, stress tests and business acceptance. No real-company test corpus or Qwen run has been accessed for this design.
+
+
+## Cross-product validity and reporting
+
+The sampling frame must cover **more than one actual authorized product** before claiming generalization across company products. Assign product-specific taxonomy codes with versioned mapping, plus a global intent layer where valid. Report macro/weighted aggregate metrics **with per-product, per-team and per-channel slices** and data coverage; aggregate F1 or high-volume-product accuracy can hide failure on minority products. A second `demo-employee-portal` domain may be used as a **synthetic schema test only** and must not count as an actual cross-product gold set. Join or compare different products only under authorized normalized taxonomy and agreed sampling rules.
