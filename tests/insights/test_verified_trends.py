@@ -61,7 +61,7 @@ def test_exact_half_open_time_boundaries_and_timezone_normalization():
     problem = ProblemTimeline(
         problem_id="boundary", scope_id="tenant-a", revision=1,
         ticket_times=(
-            ("a", NOW - timedelta(hours=48)),  # outside both windows
+            ("a", NOW - timedelta(hours=48, seconds=1)),  # outside both windows
             ("b", NOW - timedelta(hours=24)),  # current
             ("c", NOW - timedelta(hours=48) + timedelta(seconds=1)),  # previous
             ("d", NOW),  # not yet within strictly historical window
