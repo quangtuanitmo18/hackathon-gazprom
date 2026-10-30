@@ -1,0 +1,47 @@
+%% C4-inspired logical container diagram for an internal-only conceptual system.
+%% NOT evidence that the named components or interfaces are deployed at Gazprom Neft.
+flowchart LR
+  subgraph IN["Корпоративный контур — без внешних API/LLM"]
+    subgraph SOURCE["Существующие источники"]
+      T["Единая ticket-система<br/>обращения, записи звонков, вложения"]
+    end
+    subgraph PLATFORM["Предлагаемая система Product Feedback Intelligence"]
+      I["Ingestion Adapter<br/>cursor, dedup, provenance, ingested_at"]
+      M["Multimodal Workers<br/>internal Qwen-ASR + Qwen-VL"]
+      R["Data Minimization<br/>маскирование PII/секретов"]
+      Q["Intelligence Engine<br/>внутренняя Qwen «3.8»* + lexical baseline"]
+      G["Deterministic Aggregator<br/>distinct tickets, окна, coverage"]
+      P["Policy & Routing<br/>справочник команд, риск, abstain"]
+      O["Delivery / Outbox<br/>идемпотентный внутренний дайджест"]
+      S[("PostgreSQL<br/>сигналы, evidence refs, audit")]
+    end
+    subgraph HUMAN["Люди и процессы"]
+      OPS["Техподдержка<br/>штатный процесс срочных запросов"]
+      PT["Product Team Inbox<br/>решение + feedback"]
+      REV["Эксперт<br/>спорные/чувствительные случаи"]
+    end
+  end
+  T -->|"ticket metadata + media ref"| I
+  T -->|"существующий SLA"| OPS
+  I -->|"разрешённые media"| M
+  I -->|"text"| R
+  M -->|"транскрипт/признаки"| R
+  R -->|"минимизированные сигналы"| Q
+  Q -->|"кандидаты тем"| G
+  I -->|"IDs + timestamps"| G
+  G -->|"числа + доказательства"| P
+  P -->|"только allowlisted канал"| O
+  P -->|"нужно решение человека"| REV
+  REV -->|"разрешение/отказ"| P
+  O -->|"internal digest"| PT
+  PT -->|"accepted / rejected / needs_info"| O
+  I -.-> S
+  G -.-> S
+  O -.-> S
+  %% * Model name is quoted exactly from PDF, actual endpoint/version unconfirmed.
+  classDef boundary fill:#eaf4ff,stroke:#3d76a2,color:#1e3554;
+  classDef model fill:#f2ebff,stroke:#7151a9,color:#2b1f48;
+  classDef gate fill:#fff2d9,stroke:#a66b17,color:#4d3210;
+  class T,I,R,G,S boundary;
+  class M,Q model;
+  class P,REV gate;
