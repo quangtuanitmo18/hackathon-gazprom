@@ -12,8 +12,22 @@ from typing import Iterable, Literal
 
 
 TrendStatus = Literal[
-    "volume_increase", "new_activity", "monitor", "insufficient_timestamps"
+    "volume_increase", "new_activity", "monitor",
+    "insufficient_timestamps", "unknown_coverage"
 ]
+
+
+@dataclass(frozen=True)
+class SourceCoverage:
+    """Trusted adapter's complete event-time interval for one source.
+
+    The registry MUST NOT invent these records from the observed minimum or
+    maximum ticket timestamp. `evidence_ref` is a trusted import reference.
+    """
+    source_system: str
+    complete_from: datetime
+    complete_through: datetime
+    evidence_ref: str
 
 
 @dataclass(frozen=True)
@@ -22,6 +36,8 @@ class ProblemTimeline:
     scope_id: str
     revision: int
     ticket_times: tuple[tuple[str, datetime | None], ...]
+    source_systems: tuple[str, ...] = ()
+    coverage: tuple[SourceCoverage, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -37,13 +53,17 @@ class ProblemTrend:
     delta: int
     current_ticket_keys: tuple[str, ...]
     previous_ticket_keys: tuple[str, ...]
+    coverage_status: Literal["complete", "unknown_coverage"]
+    observed_pattern: Literal["volume_increase", "new_activity", "monitor"]
+    eligible_for_alert: bool
 
 
 _PRIORITY = {
     "volume_increase": 0,
     "new_activity": 1,
     "insufficient_timestamps": 2,
-    "monitor": 3,
+    "unknown_coverage": 3,
+    "monitor": 4,
 }
 
 
@@ -63,6 +83,8 @@ def analyze_problem_trends(
     [as_of-window, as_of), in UTC. Values are raw counts, not statistically
     significant spikes, root cause or calibrated duplicate probabilities.
     Problems with unknown/future event-time do not emit a positive signal.
+    Growth without source-verified interval coverage is `unknown_coverage`,
+    never an alert, regardless of how impressive its raw observed count is.
     The caller MUST construct timelines from a tenant-scoped trusted registry,
     never from user-provided Problem membership.
     """
@@ -104,6 +126,36 @@ def analyze_problem_trends(
             # Singleton Problems can never establish repeated confirmed events.
             continue
 
+        # Coverage cannot be inferred from the observed tickets. It must
+        # come from an independently checked, source-scoped ingestion manifest.
+        if len(set(problem.source_systems)) != len(problem.source_systems):
+            raise ValueError("duplicate source systems in Problem coverage")
+        if any(not isinstance(s, str) or not s.strip() for s in problem.source_systems):
+            raise ValueError("invalid Problem source coverage")
+        coverage_by_source: dict[str, SourceCoverage] = {}
+        for record in problem.coverage:
+            if not record.source_system or not record.evidence_ref.strip():
+                raise ValueError("invalid source coverage evidence")
+            if record.source_system in coverage_by_source:
+                raise ValueError("duplicate source coverage")
+            if (record.source_system not in problem.source_systems
+                or not isinstance(record.complete_from, datetime)
+                or not isinstance(record.complete_through, datetime)
+                or record.complete_from.tzinfo is None
+                or record.complete_from.utcoffset() is None
+                or record.complete_through.tzinfo is None
+                or record.complete_through.utcoffset() is None
+                or record.complete_from >= record.complete_through):
+                raise ValueError("invalid source coverage window")
+            coverage_by_source[record.source_system] = record
+        coverage_complete = bool(problem.source_systems) and all(
+            (source in coverage_by_source
+             and coverage_by_source[source].complete_from.astimezone(timezone.utc) <= previous_start
+             and coverage_by_source[source].complete_through.astimezone(timezone.utc) >= end)
+            for source in problem.source_systems
+        )
+        coverage_status = "complete" if coverage_complete else "unknown_coverage"
+
         current: list[str] = []
         previous: list[str] = []
         incomplete = False
@@ -130,12 +182,16 @@ def analyze_problem_trends(
         previous.sort()
         n, baseline = len(current), len(previous)
         delta = n - baseline
+        if n >= min_current and delta >= min_delta:
+            pattern = "new_activity" if baseline == 0 else "volume_increase"
+        else:
+            pattern = "monitor"
         if incomplete:
             status: TrendStatus = "insufficient_timestamps"
-        elif n >= min_current and delta >= min_delta:
-            status = "new_activity" if baseline == 0 else "volume_increase"
+        elif pattern != "monitor" and coverage_status != "complete":
+            status = "unknown_coverage"
         else:
-            status = "monitor"
+            status = pattern
 
         result.append(ProblemTrend(
             problem_id=problem.problem_id,
@@ -149,6 +205,9 @@ def analyze_problem_trends(
             delta=delta,
             current_ticket_keys=tuple(current),
             previous_ticket_keys=tuple(previous),
+            coverage_status=coverage_status,
+            observed_pattern=pattern,
+            eligible_for_alert=False,  # no automatic publication or escalation
         ))
 
     return tuple(sorted(
