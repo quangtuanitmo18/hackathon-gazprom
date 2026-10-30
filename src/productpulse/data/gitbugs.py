@@ -95,7 +95,12 @@ def normalize_positive_links(
             ):
                 orphans += 1
                 continue
-            pair = tuple(sorted((source, target)))
+            # Numeric order without int() conversion limits; preserve source IDs as strings.
+            def numeric_key(value: str) -> tuple[int, str, str]:
+                normalized = value.lstrip("0") or "0"
+                return (len(normalized), normalized, value)
+
+            pair = tuple(sorted((source, target), key=numeric_key))
             if pair in links:
                 repeated += 1
             links.add(pair)
