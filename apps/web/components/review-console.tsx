@@ -60,7 +60,12 @@ export function ReviewConsole({displayName}:{displayName:string}){
         !Array.isArray(payload.candidates)||!Array.isArray(payload.activity))
         throw Error("Некорректные данные");
       setData(payload);setError(null);
-    }catch(e){setError(`Не удалось загрузить данные: ${String(e)}`);}
+    }catch(e){
+      // A malformed/partial/unauthorized refresh must not leave stale pair
+      // suggestions clickable behind an error banner.
+      setData(null);
+      setError(`Не удалось загрузить данные: ${String(e)}`);
+    }
     finally{setLoading(false);}
   },[]);
   useEffect(()=>{void reload()},[reload]);
@@ -71,6 +76,7 @@ export function ReviewConsole({displayName}:{displayName:string}){
   // Selecting a different pair resets stale free-text decisions. The reviewer
   // must consciously inspect both redacted evidence panels before voting.
   const choosePair=(aKey:string,bKey:string)=>{
+    if(busy||loading)return;
     if(aKey===bKey || !data?.tickets.some(t=>t.ticket_key===aKey) ||
        !data.tickets.some(t=>t.ticket_key===bKey)){
       setError("Доказательства пары недоступны. Обновите страницу.");return;
@@ -123,6 +129,7 @@ export function ReviewConsole({displayName}:{displayName:string}){
               className="candidate-option"
               aria-label={`Ранняя пара ${i+1}: открыть доказательства`}
               onClick={()=>choosePair(item.ticket_key_a,item.ticket_key_b)}
+              disabled={busy||loading}
             >
               <span className="candidate-index">{String(i+1).padStart(2,"0")}</span>
               <span className="candidate-content">
@@ -164,6 +171,7 @@ export function ReviewConsole({displayName}:{displayName:string}){
               className="candidate-option"
               aria-label={`Предложение ${i+1}: выбрать пару тикетов`}
               onClick={()=>choosePair(candidate.ticket_key_a,candidate.ticket_key_b)}
+              disabled={busy||loading}
             >
               <span className="candidate-index">{String(i+1).padStart(2,"0")}</span>
               <span className="candidate-content">
