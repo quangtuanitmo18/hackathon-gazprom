@@ -66,7 +66,7 @@ def test_different_signing_key_is_rejected(verifier,keypair):
 
 
 def test_hs256_algorithm_confusion_rejected_before_key_resolution(verifier):
-    forged=jwt.encode({"iss":ISSUER,"sub":"admin","aud":AUDIENCE},"secret",algorithm="HS256")
+    forged=jwt.encode({"iss":ISSUER,"sub":"admin","aud":AUDIENCE},"intentionally-long-not-a-real-test-secret-0123456789",algorithm="HS256")
     with pytest.raises(ReviewTokenError):
         verifier.verify(forged,expected_scope="org-a",required_role="productpulse_reviewer")
 
