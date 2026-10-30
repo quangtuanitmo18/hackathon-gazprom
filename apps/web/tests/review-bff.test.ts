@@ -65,3 +65,10 @@ test("upstream error cannot be silently represented as successful human vote",as
   const transport=(async()=>new Response("error",{status:503})) as typeof fetch;
   await assert.rejects(fetchReviewerData(cfg,jwt.reviewerAccessToken,transport),/upstream/);
 });
+
+test("malformed Origin is denied with 403 rather than internal error",()=>{
+  assert.throws(()=>requireSameOriginPost("not a URL","https://review.example.org"),(e:unknown)=>{
+    assert.equal((e as {status:number}).status,403);
+    return true;
+  });
+});
