@@ -7,12 +7,12 @@
 | 1 | «От обращений к развитию цифровых продуктов» | Одна корпоративная петля Product Feedback Intelligence для разных продуктов | Цель PDF стр. 1–2 |
 | 2 | «Десятки продуктов, два канала, нет исходного baseline» | Тикеты+звонки → внутренняя AI аналитика → разные product teams; ≈40 сотрудников на весь охват | Контекст стр. 2,4 |
 | 3 | «Webneft — один иллюстративный кейс» | Семь обращений Webneft из PDF; same topic ≠ same technical incident | Иллюстрация стр. 6 |
-| 4 | «Hybrid C: 5 логических блоков» | Многопродуктовая архитектура с внутренними Qwen ASR/VL/text, trusted registry и outbox | Архитектура |
+| 4 | «Пять логических блоков — три процесса MVP» | Векторная архитектура + **сценарная** нагрузка 300 обращений/ч, 4 ASR + 1 VL слота, 2 Qwen text слота, 0,25 DB writes/s и 7,5 дайджестов/ч; **slots ≠ GPU, реальные замеры отсутствуют** | Архитектура, microservice rationale и нагрузка (PDF p.7) |
 | 5 | «Данные и границы доверия» | source → product_id + taxonomy_version + PII controls → internal model; no external egress | Безопасность |
 | 6 | «LLM предлагает, backend проверяет» | Tools, доверенный product_id→team, фолбек при unknown product и счетчик tickets | Tools |
 | 7 | «Что получает продуктовая команда: проверяемый сигнал» | Три **полностью синтетических** ticket по теме Webneft PDF №5 → Qwen topic → trusted count=3 в наблюдаемом наборе → evidence-backed Product Insight Draft, feedback pending; причина и тренд не установлены | Prompt + end-to-end business outcome |
 | 8 | «Offline → Shadow → Controlled» | Проверяемость, adversarial cases, 2 human labelers, cross-product holdout и release gates | Тестирование |
-| 9 | «Измеряем ценность по каждому продукту» | TPI, routing, actionable precision, reviewed coverage и saved support time; aggregate + slices | МЕТРИКИ (отдельный пункт 5) |
+| 9 | «Два времени сигнала: 5 минут ≠ 96 часов» | **Отдельный полностью синтетический пример часов**: 26.10 09:00 first_relevant_ingested → 30.10 09:00 qualified → 30.10 09:05 sent; TPI 5 мин vs E2E 96 ч 05 мин. undelivered/eligible, backlog, независимая precision ≥0,80, routing ≥0,95, net support minutes, своевременное решение ≠ разрешение проблемы; все пороги предложены, НЕ достигнуты | KPI и честные знаменатели (пункт 5 .md) |
 | 10 | «3 года, 3 сценария и альтернатива без AI» | Условная реализуемая выгода, no measured ROI; compare manual/BM25/Hybrid | Финансовая модель |
 
 ## Требования к презентации
@@ -27,3 +27,10 @@
 ## Согласование с пересмотренной презентацией
 
 На слайде 7 показан **только демонстрационный output**, а не результат Qwen или реальная отправка product team: три выдуманных ID `SYN-QUEUE-001..003`, observed count=3 в неполном учебном наборе, source coverage неизвестен, root cause не установлена, owner только из backend registry, `delivery_status=draft`, feedback ожидается. Исходный PDF, стр.6, содержит один текстовый пример аналогичного симптома, НЕ три реальных повтора. [Сценарий, примеры JSON и Mermaid](../docs/case-studies/webneft-synthetic-product-insight.md).
+
+## Final Word/Deck alignment checkpoint (2026-10-31)
+
+- **GitHub Word source**: `submissions/main-solution.ru.md` = **14 225 Unicode characters**. Three-page Professional DOCX/PDF rendered from this source, with native Word math and per-service capacity table. Calculated values are **scenario-only**, not Gazprom Neft production metrics.
+- **Slide 4** embeds five independently recalculated workload blocks: `300 tickets/hour`, ASR 4 and VL 1 hypothetical concurrency equivalents, Qwen text 2 equivalents, DB `0.25 write/s`, outbox `7.5 digests/hour`. Source [scenario JSON](../docs/architecture/per-service-capacity-scenario.json).
+- **Slide 9** is a **separate synthetic clock illustration** from the three SYN-QUEUE story tickets on slide 7. KPI source [question-5 Markdown](./05-effect-metrics.ru.md): TPI `qualified_at→sent_at` = 5 minutes but E2E `first_relevant_ingested_at→sent_at` = 96h05 in a fictional example; pilot threshold ≤4h applies ONLY to the former. Include unsent backlog to prevent delivered-only selection bias.
+- Slides 1–3,5–8,10 remain conceptually unchanged; the deck and PDF are delivered as session binary artifacts, not committed to GitHub by the text-only connector. Independent review of real data/Qwen not performed.
