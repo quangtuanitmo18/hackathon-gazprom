@@ -304,6 +304,18 @@ def verify() -> None:
                  "123", "1,64", "7,39", "baseline", "ROI"):
         assert term in speech + q_and_a, f"Defense materials lack {term}"
     assert "внешние" in q_and_a.lower() and "Webneft" in business_story
+    assert "Intelligence_Cup_2026_GazpromNeft_Final_Presentation_Candidate.pptx" in speech
+    assert "Intelligence_Cup_2026_GazpromNeft_Final_Presentation_Candidate.pptx" in q_and_a
+    assert "Jury_Review_v2.pptx" not in speech + q_and_a
+    for term in ("300", "4 ASR", "1 VL", "2", "слотов", "96 часов",
+                 "qualified_at", "first_relevant_ingested_at"):
+        assert term in speech + q_and_a, f"Final-deck oral defense missing {term}"
+    assert "docs/reviews/2026-10-31-jury-red-team-final-deck.md" not in speech
+    organizer_draft = read("docs/submission/organizer-eligibility-and-upload-inquiry.ru.md")
+    assert "аспирантуры" in organizer_draft and "срок" in organizer_draft.lower()
+    assert "не отправленное" in organizer_draft
+    print("PASS: jury defense cites final 10-slide artifact, hypothetical capacity "
+          "and synthetic two-clock KPI; organizer inquiry explicitly unsent")
     print("PASS: defense script covers slides 1..10 and 22 jury questions; "
           "uncertainty, synthetic case and scenario warnings documented")
     print("PASS: official case contract, 1–4 + 6, separate 5,",
