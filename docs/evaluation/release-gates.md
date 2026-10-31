@@ -19,7 +19,7 @@
 |---|---|---|
 | Actionable precision | ≥0.80 **on independent judged test cases** | Compare to rules-only baseline; include abstentions and selection bias in a separate report; **not** raw accepted/reviewed rate |
 | Correct routing | ≥0.95 on cases with known authoritative team; unknown routes go to human | Also report route coverage across all relevant items, otherwise trivial abstention could game accuracy |
-| Asynchronous delivery p90 | ≤4 hours from auditable `qualified_at` to `sent_at` among eligible delivered signals | Also report undelivered/backlogged share; no fake clocks for historic data |
+| Asynchronous delivery p90 | ≤4 hours from auditable `qualified_at` to `sent_at` among eligible delivered signals | **Not** the full first-observed→delivery latency; report both, plus undelivered/backlogged share and missing clocks |
 | Recurring topic recall | **Unset** until independent gold labels and prevalence are available | Must report with interval, by category/channel and coverage |
 | Prompt injection / confidential egress | **0 allowed unauthorized external sends or credential disclosure** in the test suite | Requires actual network/permissions tests before rollout, not only prompt samples |
 | Duplicate internal delivery | **0 duplicate business effects** under fault injection and retries | Transport can be at-least-once; outbox idempotency required |
@@ -35,12 +35,13 @@ These figures are **candidate business targets** that need negotiation based on 
 |---|---|---|---|
 | `source_created_at` | Source ticket DB, if accessible | User contacted support | PDF examples contain no timestamps |
 | `ingested_at` | Trusted ingestion journal | First observed by AI, recorded online | Historical backfill cannot fabricate original first observation |
+| `first_relevant_ingested_at` | Verified product-topic evidence snapshot | Earliest ticket actually ingested **in the evidence set known by `sent_at`**, versioned | If unknown or later backfill, unavailable; not automatically moment the topic was detected |
 | `qualified_at` | Trusted signal rule engine | First observed time at which *required evidence* satisfied policy | May be unknown for the old manual process |
 | `sent_at` | Internal outbox/delivery receipt | Advisory digest was delivered to product inbox | No contact if no authorized route |
 | `acknowledged_at` | Product inbox | Product team confirmed receipt | Ack isn't a product decision |
 | `decision_at` | Human product reviewer | Accepted/rejected/needs-info/in progress/resolved | Missingness and right-censoring |
 
-Compute p50/p90 on UTC timestamps with `sent_at >= qualified_at`. Report `eligible_signals`, `delivered_signals`, `undelivered_signals`, censoring and source watermark status. Define observation end so slow/unanswered signals cannot simply be dropped to make p90 look fast. For old manual baseline, if `qualified_at` unrecorded, do not compare a made-up reconstructed TPI: use separately named `source_created_at→documented_product_ack` proxy for both groups where possible, with cohort restrictions.
+Compute **two different p50/p90 distributions**, each among delivered signals with complete clocks: (1) qualified→sent TPI and (2) first-relevant-ingested→sent E2E insight delay. Each signal must satisfy `first_relevant_ingested_at <= qualified_at <= sent_at` **for a fully observed online evidence set**, with grouping version and immutable evidence refs at send time. Report unknown first clocks separately; don't retroactively backdate first observation by changing group membership after sending. Example (SYNTHETIC): first evidence ingested 2026-10-26 09:00 UTC, enough evidence 2026-10-30 09:00, sent 09:05 ⇒ TPI 5 min but E2E **96 h 5 min**. A low delivered-only p90 must not conceal waiting for enough evidence. Compute p50/p90 on UTC timestamps with `sent_at >= qualified_at`. Report `eligible_signals`, `delivered_signals`, `undelivered_signals`, censoring and source watermark status. Define observation end so slow/unanswered signals cannot simply be dropped to make p90 look fast. For old manual baseline, if `qualified_at` unrecorded, do not compare a made-up reconstructed TPI: use separately named `source_created_at→documented_product_ack` proxy for both groups where possible, with cohort restrictions.
 
 ## Quality definitions with bias controls
 
@@ -48,7 +49,7 @@ Compute p50/p90 on UTC timestamps with `sent_at >= qualified_at`. Report `eligib
 - Product team observed acceptance: `accepted/(accepted+rejected+needs_info)` among reviewed after maturation; separately report `reviewed/sent` and fraction without response. Do **not** conflate this conditional ratio with model population precision.
 - Routing: `correct/(correct+wrong)` among verifiable routed items; additionally `auto_routed/eligible` to expose trivial "abstain all" strategies.
 - Recurrence: unique source-ticket keys per product/topic/window; multi-symptom one ticket counts once. Without trusted source coverage cannot claim total volume or rising trend; counts from available sample are explicitly lower bounds, not complete inference.
-- Feedback closure: `decisions_within_SLA/sent_eligible`; report `needs_info` separately; raw `ack` measured separately.
+- **Timely product decision rate:** `decisions_within_SLA/sent_eligible_after_decision_window`; report `needs_info` separately. `acknowledged_at` is not a human decision; `resolved_at` is a separate outcome only if confirmed in a trusted product system. Unreviewed and right-censored signals remain visible.
 
 ## Offline evaluation matrix and data leakage prevention
 
