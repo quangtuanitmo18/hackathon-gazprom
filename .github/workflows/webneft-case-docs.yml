@@ -37,6 +37,6 @@ jobs:
           node-version: '22'
       - name: Parse all four diagram sources with Mermaid 11
         run: |
-          npm install --prefix "$RUNNER_TEMP/mermaid-validate" --no-save --no-package-lock --ignore-scripts --no-audit --no-fund mermaid@11.12.1
+          npm install --prefix "$RUNNER_TEMP/mermaid-validate" --no-save --no-package-lock --ignore-scripts --no-audit --no-fund mermaid@11.12.1 jsdom@26.1.0
           MERMAID_MODULE="$RUNNER_TEMP/mermaid-validate/node_modules/mermaid/dist/mermaid.esm.mjs" node scripts/validate_mermaid.mjs
 
