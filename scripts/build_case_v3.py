@@ -56,6 +56,14 @@ def runs(p,s):
     elif z.startswith('`') and z.endswith('`'):rr=p.add_run(z[1:-1]);rr.font.name='DejaVu Sans Mono';rr.font.size=Pt(8)
     else:rr=p.add_run(z)
 
+def native_word_math(expression):
+  # Two editable Office Math objects, using OMML (not an equation screenshot).
+  p=doc.add_paragraph();p.alignment=WD_PARAGRAPH_ALIGNMENT.CENTER
+  math_para=OxmlElement('m:oMathPara');math=OxmlElement('m:oMath')
+  run=OxmlElement('m:r');textnode=OxmlElement('m:t');textnode.text=expression
+  run.append(textnode);math.append(run);math_para.append(math);p._p.append(math_para)
+  p.paragraph_format.space_after=Pt(2)
+
 def table_from_rows(rows):
   cols=max(len(r) for r in rows)
   t=doc.add_table(rows=0,cols=cols);t.style='Table Grid';t.alignment=WD_TABLE_ALIGNMENT.CENTER
@@ -88,6 +96,13 @@ for ln in lines:
   if in_code:
     p=doc.add_paragraph();p.paragraph_format.left_indent=Inches(.17);p.paragraph_format.space_after=Pt(0)
     rr=p.add_run(ln);rr.font.name='DejaVu Sans Mono';rr.font.size=Pt(7.6);rr.font.color.rgb=RGBColor(34,77,96)
+  elif 'Формулы:' in ln and '`B_year=' in ln and '`PV_3=' in ln:
+    source_eqs=re.findall(r'`(B_year=[^`]+|PV_3=[^`]+)`',ln)
+    assert len(source_eqs)==2, 'Expected both native Word formulas'
+    readable=ln
+    for eq in source_eqs:readable=readable.replace('`'+eq+'`','[формула ниже]')
+    p=doc.add_paragraph(style='Normal');runs(p,readable)
+    for eq in source_eqs:native_word_math(eq)
   elif ln.startswith('# '):p=doc.add_paragraph(style='Title');runs(p,ln[2:])
   elif ln.startswith('## '):p=doc.add_paragraph(style='Heading 1');runs(p,ln[3:])
   elif ln.startswith('### '):p=doc.add_paragraph(style='Heading 2');runs(p,ln[4:])
