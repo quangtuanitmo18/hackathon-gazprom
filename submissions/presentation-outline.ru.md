@@ -11,9 +11,9 @@
 | 5 | «Данные и границы доверия» | source → product_id + taxonomy_version + PII controls → internal model; no external egress | Безопасность |
 | 6 | «LLM предлагает, backend проверяет» | Tools, доверенный product_id→team, фолбек при unknown product и счетчик tickets | Tools |
 | 7 | «Что получает продуктовая команда: проверяемый сигнал» | Три **полностью синтетических** ticket по теме Webneft PDF №5 → Qwen topic → trusted count=3 в наблюдаемом наборе → evidence-backed Product Insight Draft, feedback pending; причина и тренд не установлены | Prompt + end-to-end business outcome |
-| 8 | «Offline → Shadow → Controlled» | Проверяемость, adversarial cases, 2 human labelers, cross-product holdout и release gates | Тестирование |
+| 8 | «Offline → Shadow → Controlled» | Одинаковый holdout A/manual → B/rules+BM25 → C/internal Qwen; two-labeler gold; выигрыш C не предполагается, а проверяется; release gate по 95% Wilson CI | Тестирование |
 | 9 | «Два времени сигнала: 5 минут ≠ 96 часов» | **Отдельный полностью синтетический пример часов**: 26.10 09:00 first_relevant_ingested → 30.10 09:00 qualified → 30.10 09:05 sent; TPI 5 мин vs E2E 96 ч 05 мин. undelivered/eligible, backlog, независимая precision ≥0,80, routing ≥0,95, net support minutes, своевременное решение ≠ разрешение проблемы; все пороги предложены, НЕ достигнуты | KPI и честные знаменатели (пункт 5 .md) |
-| 10 | «3 года, 3 сценария и альтернатива без AI» | Условная реализуемая выгода, no measured ROI; compare manual/BM25/Hybrid | Финансовая модель |
+| 10 | «3 года, 3 сценария и альтернатива без AI» | PV 123 тыс./1,64 млн/7,39 млн ₽ (учебные сценарии); макро: ключевая ставка РФ 14% на 30.10.2026, CPI 6,35% сентябрь г/г; стресс PV базы r=14% → 1,53 млн ₽, это НЕ ставка WACC. Выбор Hybrid только при доказанном приросте над BM25 | Финансовая модель |
 
 ## Требования к презентации
 - Бренд решения — мультипродуктовый агент «Газпром нефти», не Webneft-only продукт.
@@ -30,7 +30,7 @@
 
 ## Final Word/Deck alignment checkpoint (2026-10-31)
 
-- **GitHub Word source**: `submissions/main-solution.ru.md` = **14 225 Unicode characters**. Three-page Professional DOCX/PDF rendered from this source, with native Word math and per-service capacity table. Calculated values are **scenario-only**, not Gazprom Neft production metrics.
+- **GitHub Word source**: `submissions/main-solution.ru.md` = **VERSIONED CURRENT LENGTH (recompute before export)**. Previous 4-page Professional DOCX/PDF was generated **before quality upgrades** and must NOT be treated as synced final export until rebuilt. This storyboard is updated source, not the old binary.  Calculated values are **scenario-only**, not Gazprom Neft production metrics.
 - **Slide 4** embeds five independently recalculated workload blocks: `300 tickets/hour`, ASR 4 and VL 1 hypothetical concurrency equivalents, Qwen text 2 equivalents, DB `0.25 write/s`, outbox `7.5 digests/hour`. Source [scenario JSON](../docs/architecture/per-service-capacity-scenario.json).
 - **Slide 9** is a **separate synthetic clock illustration** from the three SYN-QUEUE story tickets on slide 7. KPI source [question-5 Markdown](./05-effect-metrics.ru.md): TPI `qualified_at→sent_at` = 5 minutes but E2E `first_relevant_ingested_at→sent_at` = 96h05 in a fictional example; pilot threshold ≤4h applies ONLY to the former. Include unsent backlog to prevent delivered-only selection bias.
-- Slides 1–3,5–8,10 remain conceptually unchanged; the deck and PDF are delivered as session binary artifacts, not committed to GitHub by the text-only connector. Independent review of real data/Qwen not performed.
+- **Slides 8 and 10 need synchronized binary re-export** to show pre-specified model comparison/CI and dated macro-stress result; the existing slide binaries from earlier session are prior revision and are not claimed current. Other slides remain conceptually unchanged. Independent review of real data/Qwen not performed.
