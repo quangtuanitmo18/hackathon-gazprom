@@ -82,6 +82,16 @@
         "nominal_discount_rate": 0.1,
         "nominal_hourly_value_growth": 0.05,
         "expected_rub": 1719421
+      },
+      {
+        "nominal_discount_rate": 0.14,
+        "nominal_hourly_value_growth": 0,
+        "expected_rub": 1532277
+      },
+      {
+        "nominal_discount_rate": 0.14,
+        "nominal_hourly_value_growth": 0.05,
+        "expected_rub": 1603331
       }
     ]
   },
@@ -92,5 +102,17 @@
     "Annual saved minutes and adoption are not company-measured",
     "No invented current Russian CPI, discount or wage figures",
     "Financial payback within 3 years is conditional on actual lifecycle costs and realizable value"
-  ]
+  ],
+  "macro_context_as_of": "2026-10-31",
+  "macro_context_observed": {
+    "cbr_key_rate_percent_2026_10_30": 14,
+    "rosstat_cpi_yoy_percent_september_2026": 6.35,
+    "rosstat_cpi_dec2025_to_sep2026_percent": 5.04,
+    "sources": [
+      "https://www.cbr.ru/hd_base/KeyRate/?UniDbQuery.Posted=True",
+      "https://www.cbr.ru/statistics/ddkp/infl/",
+      "https://www.rosstat.gov.ru/storage/mediabank/157_09-10-2026.html"
+    ],
+    "warning": "Central bank policy rate is not corporate WACC; CPI is not wage escalation."
+  }
 }
