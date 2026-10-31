@@ -1,0 +1,60 @@
+{
+  "schema_version": "gazpromneft-capacity-scenario-v1",
+  "provenance": {
+    "document": "Кейс_Искусственный интеллект.pdf",
+    "document_page": 4,
+    "verified_pdf_facts": [
+      "support_managers_approx_40"
+    ],
+    "disclaimer": "All other input values are illustrative and MUST be benchmarked or measured before sizing."
+  },
+  "inputs": {
+    "support_managers": 40,
+    "illustrative_tickets_per_manager_day": 20,
+    "active_hours_per_day": 8,
+    "peak_factor": 3,
+    "target_utilization": 0.7,
+    "illustrative_call_fraction": 0.3,
+    "illustrative_audio_minutes_per_call": 3,
+    "illustrative_asr_rtf": 0.5,
+    "illustrative_image_ticket_fraction": 0.2,
+    "illustrative_images_per_eligible_ticket": 1,
+    "illustrative_vl_service_seconds_per_image": 8,
+    "illustrative_text_inference_per_ticket": 1,
+    "illustrative_input_tokens": 1200,
+    "illustrative_output_tokens": 200,
+    "illustrative_text_service_seconds": 12,
+    "illustrative_retrieval_queries_per_ticket": 1,
+    "illustrative_db_writes_per_ticket": 3,
+    "illustrative_daily_advisory_digests": 20
+  },
+  "derived_expected": {
+    "tickets_per_day": 800,
+    "tickets_per_hour_over_active_shift": 100,
+    "tickets_per_hour_at_assumed_peak": 300,
+    "tickets_per_second_at_assumed_peak": 0.08333333333333333,
+    "calls_per_day": 240,
+    "audio_minutes_per_day": 720,
+    "asr_peak_worker_equivalents": 4,
+    "image_inputs_per_day": 160,
+    "vl_peak_images_per_hour": 60,
+    "vl_peak_concurrency_equivalents": 1,
+    "text_inference_peak_per_hour": 300,
+    "text_input_tokens_peak_per_second": 100,
+    "text_output_tokens_peak_per_second": 16.666666666666668,
+    "text_peak_concurrency_equivalents": 2,
+    "retrieval_queries_peak_per_second": 0.08333333333333333,
+    "db_write_ops_peak_per_second": 0.25,
+    "hypothetical_digests_peak_per_hour": 7.5,
+    "digests_peak_per_second": 0.0020833333333333333
+  },
+  "non_claims": [
+    "not measured production ticket throughput",
+    "not an actual Qwen 3.8 token throughput or hardware requirement",
+    "ASR/VL/Qwen slots are service-concurrency equivalents, not GPU count",
+    "20/day advisory digests is an independent hypothetical value, not 2.5 percent of tickets",
+    "peak factor means hypothetical peak observed hour relative to 8h mean, not constant extra demand for every hour",
+    "different model queues require dedicated benchmarks and bounded concurrency",
+    "unknown source completeness cannot justify zero complaints or full-population incident claims"
+  ]
+}
