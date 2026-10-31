@@ -13,6 +13,7 @@ on:
       - 'docs/superpowers/**'
       - 'data/webneft/**'
       - 'scripts/validate_case_submission.py'
+      - 'scripts/validate_mermaid.mjs'
       - '.github/workflows/webneft-case-docs.yml'
   workflow_dispatch:
 
@@ -23,10 +24,19 @@ jobs:
   validate-submission-contract:
     name: Check case source, 15k limit and deliverable structure
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Verify the official 7-page case contract (Python stdlib)
         run: python3 scripts/validate_case_submission.py
       - name: Verify structured source examples are valid JSON
         run: python3 -m json.tool data/webneft/case-examples.json > /dev/null
+      - name: Set up Node for actual Mermaid syntax parsing
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Parse all four diagram sources with Mermaid 11
+        run: |
+          npm install --prefix "$RUNNER_TEMP/mermaid-validate" --no-save --no-package-lock --ignore-scripts --no-audit --no-fund mermaid@11.12.1
+          MERMAID_MODULE="$RUNNER_TEMP/mermaid-validate/node_modules/mermaid/dist/mermaid.esm.mjs" node scripts/validate_mermaid.mjs
+
