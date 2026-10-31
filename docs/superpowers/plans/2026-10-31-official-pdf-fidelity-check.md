@@ -14,8 +14,16 @@
 - [x] Verify format 1–4 and 6 together in DOCX/DOC/PDF, Q5 separate Markdown, ~10 slides, ≤15k visible characters, no document hyperlinks used to bypass cap.
 - [x] Recompute all three scenario PV calculations; distinguish provided N≈40 from invented m/a/w/k/r/g.
 - [x] Verify scoring rubric p7: all six answers, detailed microservice rationale and service-load estimates, measurable KPI/fallbacks, macro sensitivity, alternate investments, visual slides.
-- [ ] Correct clear ambiguity in sequence diagram's handling of incomplete coverage; preserve policy-allowed observed-only digests.
-- [ ] Record actionable P1/P2 improvements while avoiding changes to byte-synced export source without regeneration.
-- [ ] Check CI on new exact HEAD, log author self-review in draft PR; no merge/deploy/submission.
+- [x] Correct clear ambiguity in sequence diagram's handling of incomplete coverage; preserve policy-allowed observed-only digests.
+- [x] Record actionable P1/P2 improvements while avoiding changes to byte-synced export source without regeneration.
+- [x] Check CI on audited source commit (run 41195878807) and log review; note follow-up doc-only commit may rerun CI, log author self-review in draft PR; no merge/deploy/submission.
 
 **Acceptance:** accurately report what's correct and what is only assumed. Cannot certify actual performance/ROI or independent judge scoring without real data.
+
+## Verified review checkpoint — 2026-10-31
+
+- [Rubric and seven-example audit report](../../reviews/2026-10-31-official-pdf-and-seven-examples-audit.md): **no established P0 violations**, P1 per-service load sizing and full discovery-to-delivery latency remain open for editorial enhancement.
+- Canonical feedback Mermaid wording now distinguishes *invalid evidence* from *incomplete but clearly declared source coverage*, and its README preview is synchronized.
+- [GitHub Actions #41195878807](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41195878807) **SUCCESS** on audited source/report commit `6d59f9997efd60b9c5dae55ca6095e2da2632108`: 4 Mermaid sources validated by **actual Mermaid parser**, 24 test case definitions, 7 JSON examples, mathematical finance checks, main=13,037 source characters and 10-slide outline.
+- Original case Word Professional: 4 A4 pages, 12,430 extracted visible characters, zero hyperlinks, actual native Word math. Ten-slide jury PPTX reviewed; business demo still **synthetic**.
+- **No independent adjudicator**, no actual user ticket source, actual Qwen model tests, measured ROI or verified organizer submission. Keep Draft PR #24.
