@@ -1,4 +1,4 @@
-# Webneft V2 — diagrams (GitHub Mermaid preview)
+# Gazprom Neft multi-product AI Agent V2 — diagrams (GitHub Mermaid preview)
 
 **Project-only draft** for Intelligence Cup 2026, approved conceptual approach C (Hybrid). These diagrams **do not** describe actually deployed Webneft microservices or interfaces. Source of truth for competition rules: 7-page PDF `Кейс_Искусственный интеллект.pdf`. No external LLM/API. The exact text model version called «Qwen 3.8» in the PDF remains unverified.
 
@@ -172,10 +172,10 @@ sequenceDiagram
   I->>A: authoritative source IDs + timestamps
   A->>A: distinct count, time window, coverage
   A-->>P: evidence-linked unverified candidate
-  alt urgent, sensitive, incomplete or no routing
+  alt urgent, sensitive, invalid evidence or no approved routing
     P->>H: route to existing human process
     H-->>P: decision / need more evidence
-  else policy allows advisory product digest
+  else policy allows advisory (partial coverage clearly marked)
     P->>O: create digest with stable idempotency key
     O->>T: approved internal channel (no external API)
     T-->>O: ack + accepted / rejected / needs_info
