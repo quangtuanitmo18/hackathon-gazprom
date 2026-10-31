@@ -19,10 +19,10 @@ sequenceDiagram
   I->>A: authoritative source IDs + timestamps
   A->>A: distinct count, time window, coverage
   A-->>P: evidence-linked unverified candidate
-  alt urgent, sensitive, incomplete or no routing
+  alt urgent, sensitive, invalid evidence or no approved routing
     P->>H: route to existing human process
     H-->>P: decision / need more evidence
-  else policy allows advisory product digest
+  else policy allows advisory (partial coverage clearly marked)
     P->>O: create digest with stable idempotency key
     O->>T: approved internal channel (no external API)
     T-->>O: ack + accepted / rejected / needs_info
