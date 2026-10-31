@@ -17,6 +17,21 @@
 
 **Scope guard:** Multi-product Gazprom Neft agent, separate product_id/taxonomy/routing and authorization; Webneft is a worked example. Externally sourced Webneft business detail from prior DeepSeek analysis is not official ticket evidence.
 
+## Critical path — do these before polishing anything else
+
+The 52 checkboxes are an **exhaustive quality/control inventory**, NOT 52 equally urgent writing tasks. To avoid over-engineering, apply this execution order:
+
+| Order | Essential improvement | Precise outputs | Completion proof |
+|---:|---|---|---|
+| **1** | **B1–B6: per-service capacity** | reproducible ingress/ASR/VL/Qwen/retrieval/DB/outbox mini-table in Q1; same architecture across Word+slide 4 | all units/peaks/assumptions recomputed, no invented model throughput |
+| **2** | **D1–D7: KPI credibility** | new first-observed→delivered + existing qualified→delivered, backlog and bias fixes in item5 | judge can calculate from sample audit log and explain no data |
+| **3** | **E1–E5: financial defensibility** | locked scenario inputs, explicit m/adoption/k definitions, A/B/C incremental decision | independent CI math and clear unknown C |
+| **4** | **F1–F5: business outcome** | Before→After and slide7 SYNTHETIC draft with product owner/feedback loop | a non-technical judge explains value in <15 seconds |
+| **5** | **G1–G7: regenerate final files** | stand-alone Word/PDF under 15k, separate Q5 .md, 10 slides, visual QA, hash manifest | source+Office+PDF review, current-HEAD CI |
+| **6** | **H1–H7: defense and independent signoff** | technical/financial/Russian mock jury, corrections and confirmed portal packaging | zero open P0, independent reviewers signed off |
+
+**Maintenance only:** A/C material already reviewed remains unchanged unless the re-audit identifies a contradiction; do not churn working prompts, tools, contracts and diagrams just because a phase exists. **Bonus only if capacity permits:** optional AI Footnotes, more diagrams, dated official macro context, extra UI demo. **Explicitly do NOT build app code** to satisfy a design-only competition rubric.
+
 ## 1. Current baseline (verified, not a task to repeat)
 
 - Source main Russian Markdown: 13,037 characters; Q5 separate Markdown: 9,466 chars. Both exact-matched to exported text source in GitHub.
