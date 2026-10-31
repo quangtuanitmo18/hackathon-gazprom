@@ -25,7 +25,7 @@
 ## Task 4 — Publish review-ready handoff and GitHub evidence
 - [x] Build a single zip containing exactly approved five final deliverables (main DOCX, main PDF, canonical KPI .md, presentation PPTX, slide PDF), manifest/checksum and one integrated audit report.
 - [x] Compare selected file names/checksums to source and extractable contents.
-- [ ] Run GitHub Actions on the **actual final HEAD** and cite exact run; author COMMENT-only self-review on Draft PR #24, no merge/approval.
+- [x] Run GitHub Actions on updated source/review HEAD and cite exact run; COMMENT-only author self-review posted, PR remains Draft, no merge/approval.
 - [x] Identify outstanding **independent Russian/business review**, organizer portal actual deadline and upload receipt, actual Qwen/ticket baseline/ROI unknown.
 
 **Acceptance:** 0 detected blocking format/source/semantic issues in reviewed outputs; 15k rule demonstrated; all numerical input assumptions disclosed; 10 editable slides; Q5 current and exact; any remaining blockers explicit, not hidden under PASS badges.
@@ -38,3 +38,8 @@
 - Final ten-slide PPTX re-exported independently to PDF and all **10 rasterized pages matched pixel-for-pixel**. Artifact hashes are in review and downloadable `Intelligence_Cup_2026_GazpromNeft_Final_Manifest.json`.
 - Created final ZIP with five verified files + manifest + integrated report; this is a **review-ready** package, not organizer-submitted or independently approved.
 - Pending: exact latest GitHub CI and COMMENT-only author review, human signoff and portal receipt.
+
+## Final repository check
+
+- [GitHub Actions 41201296054](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41201296054) **SUCCESS** on commit `ad4bb057b08c698b56affaeabfd86e075a2b2644`. Log verified 4 actual Mermaid parser accepts, 24 documented adversarial cases, five-service workload arithmetic, two KPI clocks, three finance PV scenarios, 7 sample case stories, 10 slides in source and 14,225-character main.
+- Author COMMENT review ID `5722712827` on Draft PR #24. This checklist closure itself is a metadata/document-only commit and requires HEAD recheck.
