@@ -8,10 +8,11 @@
 
 ## Журнал событий для всех KPI
 
-Внутри корпоративного контура фиксировать только необходимую метаинформацию: `scope_id`, `source_ticket_key`, `product_id`, `source_created_at?`, `ingested_at`, `candidate_detected_at`, `qualified_at?`, `sent_at?`, `acknowledged_at?`, `reviewed_at?`, `decision_at?`, `decision`, `source_coverage`, `model_version`, `taxonomy_version`, `policy_version`, `delivery_status`.
+Внутри корпоративного контура фиксировать только необходимую метаинформацию: `scope_id`, `source_ticket_key`, `product_id`, `source_created_at?`, `ingested_at`, `candidate_detected_at`, `first_relevant_ingested_at?`, `qualified_at?`, `sent_at?`, `acknowledged_at?`, `reviewed_at?`, `decision_at?`, `decision`, `source_coverage`, `model_version`, `taxonomy_version`, `policy_version`, `delivery_status`.
 
 - `source_created_at` — исходный timestamp, если известен; он не означает, что агент уже видел сообщение.
 - `ingested_at` — первый реальный момент наблюдения агентом; **нельзя восстанавливать задним числом** из времени создания тикета.
+- `first_relevant_ingested_at` — самый ранний **реально зарегистрированный** `ingested_at` уникального ticket, связанного с данной темой **по evidence, доступному на момент отправки**; фиксируется вместе с версией группировки. Он может быть неизвестен при backfill и **не** означает, что тема уже тогда была обнаружена. Нельзя добавлять данные будущего.
 - `qualified_at` — первое подтверждённое время, когда накоплен минимальный набор evidence для разрешённого сигнала в текущем потоке.
 - `sent_at` — успешная доставка внутреннего digest, не просто создание draft.
 - `acknowledged_at` — подтверждение получения; `decision_at` — бизнес-решение, не одно и то же.
@@ -23,13 +24,16 @@
 | KPI | Формула/смысл | Как измерять | Если данные недоступны |
 |---|---|---|---|
 | **Time-to-Product-Insight, TPI (главная)** | p50/p90(`sent_at − qualified_at`) среди доставленных *eligible* сигналов | Backend qualification journal + подтверждение внутренней доставки; **отдельно** недоставленные/eligible и возраст backlog | Историческое `qualified_at` часто недоступно: отдельно считать `ticket_created/ingested → product_ack` на сопоставимых когортах как **proxy**, не сравнивать напрямую с TPI |
+| **End-to-End Insight Delay (дополнительная)** | p50/p90(`sent_at − first_relevant_ingested_at`) для доставленных с проверенным онлайн-журналом; **отдельно** `undelivered/eligible`, p90 возраст несообщённых случаев и доля известных first-clock | Событийный журнал + **снимок набора evidence на момент отправки**; earliest known, не время реальной идентификации темы | Для старого потока без `ingested_at` **не восстанавливать** из `source_created_at`. Можно публиковать отдельно маркированный proxy `source_created_at→documented_product_ack` для сравнимых когорт, не подменять им E2E |
 | **Actionable precision** | Полезные среди **выбранных к отправке** / все независимые разметки выбранных к отправке | Стратифицированная случайная выборка независимо от наличия обратной связи; 2 эксперта + арбитр; CI и размер n | `accepted/(accepted+rejected+needs_info)` только среди review — **условный acceptance rate**, не precision модели; отдельно `reviewed/sent` |
 | **Recurring topic recall** | Обнаруженные gold recurring topics / все gold recurring topics в размеченном окне | Репрезентативная экспертная разметка, включая пропущенные/abstained примеры | Без gold data **не оценивается**; показывать подтверждённые найденные темы, не процент recall |
 | **Routing accuracy + coverage** | Correct / adjudicated routed; **и** auto-routed / eligible | Авторитетный реестр product→team и подтверждение получателя | Unknown team → human; фиксировать долю `needs_human` и ошибки |
 | **Manual reporting effort** | Средние минуты/неделю на анализ, сводки и пересылку, **минус новое время проверки AI** | Интервью и time study поддерживающей команды, контрольная группа | Self-reported time diary как оценочный proxy с неопределённостью |
-| **Feedback closure** | Решения в установленный срок / все доставленные eligible | `decision_at` + product inbox; `accepted/rejected/needs_info` раздельно | Доля ACK — отдельная, **не** подмена решения |
+| **Timely product decision rate** | Решения в установленный срок / все доставленные eligible с истёкшим окном ответа | `decision_at`, human product inbox, approved SLA; `accepted/rejected/needs_info` раздельно | ACK — отдельная метрика; **реальное устранение** проблемы считать лишь при подтверждённом `resolved_at` и отдельном знаменателе |
 | **Source completeness** | Подтверждённые source/time strata / ожидаемые, если известна инвентаризация | Heartbeat, cursor, watermark/reconciliation | `unknown_coverage`: только наблюдаемое нижнее ограничение |
 | **Safety and reliability** | Утечки, wrong-tenant access, false merges, duplicate delivery effects | Security tests, human pair labels, outbox replay | При сбоях — manual/rules-only режим без auto-send |
+
+**Проверяемый учебный пример (не наблюдение компании):** первый связанный ticket зарегистрирован **26.10.2026 09:00 UTC**, достаточный evidence появляется **30.10.2026 09:00 UTC**, внутренний дайджест доставлен **30.10.2026 09:05 UTC**. Тогда `TPI=5 минут`, но `end-to-end=96 ч 5 минут`. Публиковать только 5 минут как «время от обращения до продуктовой команды» **ошибочно**. Если card не отправлена, она не попадает в p90 доставленных — её надо учитывать как `undelivered` с возрастом backlog и censoring.
 
 **Защита от selection bias:** нельзя исключать недоставленные карточки из отчёта о скорости или считать молчание product team отрицательным отзывом. Независимая **precision** оценивается на отобранных системой кандидатах, включая необработанные человеком; **recall** — на всей релевантной разметке, включая abstained. `accepted/reviewed` не заменяет blind product-label evaluation. Указывать n, доверительные интервалы и долю неизвестных/необработанных.
 
@@ -41,13 +45,13 @@
 4. **Gold labels:** два независимых разметчика и арбитр, отдельные признаки `intent`, `journey`, `symptom`, `same_problem_pair`, `actionable`, `product_route`; случайная/стратифицированная выборка разных продуктов, каналов, периодов, редких классов, temporal holdout. Семь примеров PDF — **не gold dataset**.
 5. **Shadow:** генерировать только draft, без внутренней отправки; сравнить rules+BM25 и Hybrid C на одних источниках, тестировать Qwen-ASR/VL, PII, prompt injection и неотложные сервисные обращения.
 6. **Controlled rollout:** ограниченный список продуктовых команд + policy-approved внутренний digest; по возможности switchback/сопоставимая контрольная группа, учесть seasonality, загрузку и right-censoring. Автоматического изменения аккаунтов/договоров/заказов нет.
-7. **Мониторинг:** еженедельно — TPI, undelivered/eligible, reviewed/sent, неверная маршрутизация, false grouping, source coverage, SLA и safety; ежемесячно — изменение ручных минут, подтверждённые бизнес-решения и фактическое повторное использование высвободившегося времени.
+7. **Мониторинг:** еженедельно — qualification→delivery TPI, first-observed→delivery, undelivered/eligible, reviewed/sent, неверная маршрутизация, false grouping, source coverage, SLA и safety; ежемесячно — изменение ручных минут, подтверждённые бизнес-решения и фактическое повторное использование высвободившегося времени.
 
 ## Предлагаемые критерии (не достигнуты и не утверждены заказчиком)
 
 - Независимая actionable precision ≥ **0,80** при достаточной размеченной выборке и confidence intervals.
 - Correct product routing ≥ **0,95** вместе с показателем auto-route coverage (иначе можно «победить», никого не маршрутизируя).
-- p90 TPI для разрешённых асинхронных дайджестов ≤ **4 часа**, **с отдельной публикацией недоставленных и backlog**.
+- p90 **qualified→delivered TPI** для разрешённых асинхронных дайджестов ≤ **4 часа** (проектная цель, **НЕ** для полного end-to-end); отдельно публиковать first-observed→sent, undelivered, backlog и полноту исходных часов.
 - Никакого ухудшения SLA срочных операций (например, срочной смены телефона перед отгрузкой).
 - **0 допустимых** unauthorized external HTTP/LLM, раскрытий PII/OTP и duplicate business effects при тестах; это не гарантия абсолютного нулевого риска.
 - Recurring recall target устанавливается **после** формирования независимого gold set, а не произвольно на семи примерах.
