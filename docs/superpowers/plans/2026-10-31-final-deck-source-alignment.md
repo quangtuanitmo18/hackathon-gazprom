@@ -15,7 +15,7 @@
 - [x] **4. Protect other slides:** Webneft example #5 is one official request; slide7 uses three separate SYN-QUEUE **fictional** records. Slide10 amounts 123k/1.64m/7.39m RUB are hypothetical 3-year realized-value PV, **not measured ROI**.
 - [x] **5. Render and inspect:** export PPTX to PDF, render ten page PNGs and montage, visually inspect all pages and detail slides 4,7,9,10. Assert slide count=10, 16:9, no shapes off canvas, PDF text extractable/no overflow, correct strings, Cyrillic legibility.
 - [x] **6. Verify consistency:** compare exact text/numbers with GitHub source and current Word artifact, Q5 standalone. Check no unsupported actual Qwen inference, no external APIs, no invented root cause or shared incident. Recalc workload and KPI sample; create self-review and hashes.
-- [ ] **7. Repository & CI:** update `submissions/presentation-outline.ru.md` and final slide build source, record source-file hash and explicit limitations. Run GitHub Actions on exact new HEAD and post COMMENT-only self-review in Draft PR #24; **no merge/deploy**.
+- [x] **7. Repository & CI:** update `submissions/presentation-outline.ru.md` and final slide build source, record source-file hash and explicit limitations. Run GitHub Actions on exact new HEAD and post COMMENT-only self-review in Draft PR #24; **no merge/deploy**.
 
 **Acceptance:** handoff verified downloadable PPTX + PDF + contact sheet; full source and QA manifest, no hidden slide count reduction, no confusion of synthetic sizing/timing with measured company facts. Independent Russian language/jury editorial review remains outstanding.
 
@@ -24,4 +24,4 @@
 - [Final slide QA report](../../reviews/2026-10-31-final-deck-source-and-visual-qa.md): real **10 editable PPTX slides**, **10 rendered PDF pages**, 16:9, all shape/text bounds on canvas, all pages rendered/checked; slides 4 and 9 inspected at presentation resolution.
 - Source of capacity inputs: [scenario JSON](../../architecture/per-service-capacity-scenario.json); source of qualified/E2E clocks: [separate Q5 KPI Markdown](../../../submissions/05-effect-metrics.ru.md); source of business facts: [main written solution](../../../submissions/main-solution.ru.md).
 - Final PPTX/PDF, contact sheet, generator JS and machine QA JSON packaged for conversation download; **not committed to GitHub**. The source storyline is updated in `submissions/presentation-outline.ru.md`.
-- Remaining final step: CI on exact final PR head and comment-only author review. Independent human signoff remains outstanding.
+- Repository CI [#41199080414](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41199080414) **SUCCESS** on source/plan commit `043652a`; COMMENT-only author review recorded in PR after this checkpoint. Independent human signoff remains outstanding.
