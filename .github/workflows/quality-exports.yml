@@ -1,0 +1,71 @@
+name: Intelligence Cup V3 final artifact exports
+on:
+  push:
+    branches: [feat/webneft-case-v2]
+    paths:
+      - 'submissions/main-solution.ru.md'
+      - 'submissions/05-effect-metrics.ru.md'
+      - 'docs/business/scenario-inputs.json'
+      - 'scripts/build_case_v3.py'
+      - 'scripts/validate_quality_upgrade.py'
+      - '.github/workflows/quality-exports.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install rendering dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libreoffice-writer libreoffice-impress fonts-dejavu-core
+          python3 -m pip install --break-system-packages --quiet python-docx==1.2.0 python-pptx==1.0.2 pymupdf==1.26.0
+      - name: Validate official case and quality improvements
+        run: |
+          python3 scripts/validate_case_submission.py
+          python3 scripts/validate_quality_upgrade.py
+      - name: Create editable DOCX/PPTX and matching PDF exports from CURRENT GitHub sources
+        run: python3 scripts/build_case_v3.py "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/dist"
+      - name: Inspect page count and PDF text
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import fitz
+          from pptx import Presentation
+          from docx import Document
+          out=Path('dist')
+          ppt=Presentation(out/'Intelligence_Cup_2026_Presentation_V3.pptx')
+          assert len(ppt.slides)==10
+          slidepdf=fitz.open(out/'Intelligence_Cup_2026_Presentation_V3.pdf')
+          assert len(slidepdf)==10
+          mainpdf=fitz.open(out/'Intelligence_Cup_2026_Main_Q1-4_Q6_V3.pdf')
+          assert 3<=len(mainpdf)<=8, f'Unexpected page count: {len(mainpdf)}'
+          text='\n'.join(p.get_text() for p in mainpdf)
+          for token in ['1 532 277','1 603 331','Wilson','BM25','6,35%']:
+            assert token in text, f'Lost in rendered main PDF: {token}'
+          word=Document(out/'Intelligence_Cup_2026_Main_Q1-4_Q6_V3.docx')
+          assert len(word.tables)>=2
+          assert (out/'Intelligence_Cup_2026_Q5_Effect_Metrics_V3.md').exists()
+          print('PASS: real V3 source exported into',len(mainpdf),'Word/PDF pages and 10 slide pages')
+          PY
+      - name: Pack final deliverable set with checksums
+        run: |
+          cd dist
+          zip -q -9 Intelligence_Cup_2026_V3_FINAL_REVIEW_PACK.zip \
+            Intelligence_Cup_2026_Main_Q1-4_Q6_V3.docx \
+            Intelligence_Cup_2026_Main_Q1-4_Q6_V3.pdf \
+            Intelligence_Cup_2026_Q5_Effect_Metrics_V3.md \
+            Intelligence_Cup_2026_Presentation_V3.pptx \
+            Intelligence_Cup_2026_Presentation_V3.pdf manifest.json
+      - name: Upload final downloadable candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: intelligence-cup-v3-review-pack
+          path: dist/Intelligence_Cup_2026_V3_FINAL_REVIEW_PACK.zip
+          if-no-files-found: error
+          retention-days: 30
