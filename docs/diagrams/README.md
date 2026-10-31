@@ -168,7 +168,7 @@ sequenceDiagram
     I->>M: internal-only media processing (restricted PII boundary)
   end
   I->>M: minimized text / approved signals
-  M-->>A: proposed intent, topic, symptom; not a diagnosis
+  M-->>A: proposed intent, topic, symptom (not a diagnosis)
   I->>A: authoritative source IDs + timestamps
   A->>A: distinct count, time window, coverage
   A-->>P: evidence-linked unverified candidate
