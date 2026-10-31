@@ -7,6 +7,7 @@ Run from the repository root: python3 scripts/validate_case_submission.py
 from __future__ import annotations
 
 import json
+import math
 import re
 from pathlib import Path
 
@@ -139,6 +140,60 @@ def verify() -> None:
     assert "Webneft" in outline and "один" in outline
     assert "10 слайдов" in outline
     print("PASS: multi-product scope, per-product taxonomy, routing and four product-boundary tests")
+    # Independent 5-block workload regression based on explicitly hypothetical
+    # inputs; never treat these numbers as measured corporate model capacity.
+    capacity = json.loads(read("docs/architecture/per-service-capacity-scenario.json"))
+    x = capacity["inputs"]
+    exp = capacity["derived_expected"]
+    q = x["support_managers"] * x["illustrative_tickets_per_manager_day"]
+    active_hours = x["active_hours_per_day"]
+    peak_hourly = q / active_hours * x["peak_factor"]
+    peak_seconds = peak_hourly / 3600
+    utilization = x["target_utilization"]
+    assert x["support_managers"] == 40
+    assert q == exp["tickets_per_day"] == 800
+    assert q / active_hours == exp["tickets_per_hour_over_active_shift"]
+    assert peak_hourly == exp["tickets_per_hour_at_assumed_peak"] == 300
+    assert math.isclose(peak_seconds, exp["tickets_per_second_at_assumed_peak"])
+    audio_minutes = q * x["illustrative_call_fraction"] * x["illustrative_audio_minutes_per_call"]
+    asr_slots = math.ceil(
+        audio_minutes * x["illustrative_asr_rtf"] * x["peak_factor"] /
+        (active_hours * 60 * utilization)
+    )
+    assert audio_minutes == exp["audio_minutes_per_day"] == 720
+    assert q * x["illustrative_call_fraction"] == exp["calls_per_day"] == 240
+    assert asr_slots == exp["asr_peak_worker_equivalents"] == 4
+    img_daily = q * x["illustrative_image_ticket_fraction"] * x["illustrative_images_per_eligible_ticket"]
+    img_peak_hour = img_daily / active_hours * x["peak_factor"]
+    img_slots = math.ceil(img_peak_hour * x["illustrative_vl_service_seconds_per_image"] / (3600 * utilization))
+    assert img_daily == exp["image_inputs_per_day"] == 160
+    assert img_peak_hour == exp["vl_peak_images_per_hour"] == 60
+    assert img_slots == exp["vl_peak_concurrency_equivalents"] == 1
+    text_peak_hour = peak_hourly * x["illustrative_text_inference_per_ticket"]
+    text_slots = math.ceil(text_peak_hour * x["illustrative_text_service_seconds"] / (3600 * utilization))
+    assert text_peak_hour == exp["text_inference_peak_per_hour"]
+    assert text_slots == exp["text_peak_concurrency_equivalents"] == 2
+    assert math.isclose(text_peak_hour * x["illustrative_input_tokens"] / 3600,
+                        exp["text_input_tokens_peak_per_second"])
+    assert math.isclose(text_peak_hour * x["illustrative_output_tokens"] / 3600,
+                        exp["text_output_tokens_peak_per_second"])
+    assert math.isclose(peak_seconds * x["illustrative_retrieval_queries_per_ticket"],
+                        exp["retrieval_queries_peak_per_second"])
+    assert math.isclose(peak_seconds * x["illustrative_db_writes_per_ticket"],
+                        exp["db_write_ops_peak_per_second"])
+    digest_peak_hour = x["illustrative_daily_advisory_digests"] / active_hours * x["peak_factor"]
+    assert math.isclose(digest_peak_hour, exp["hypothetical_digests_peak_per_hour"])
+    assert math.isclose(digest_peak_hour / 3600, exp["digests_peak_per_second"])
+    assert all(t in main for t in ("0,0093/с", "0,0278/с", "0,0833/с",
+                                   "720 аудиомин", "4` ASR-слота", "2 конкурентных слота",
+                                   "0,25 write/s", "7,5/пиковый час"))
+    assert "slots ≠ число GPU" in main
+    capacity_doc = read("docs/architecture/per-service-capacity-analysis.ru.md")
+    assert "проектный сценарий" in capacity_doc
+    assert "НЕ" in capacity_doc
+    print("PASS: five logical service workloads independently recalculated "
+          "from tagged hypothetical inputs (ingest/ASR/VL/Qwen/BM25/DB/outbox)")
+
     # Economic scenario regression check: arithmetic and textual cross-file consistency.
     finance = read("docs/business/financial-assumptions.md")
     release = read("docs/evaluation/release-gates.md")
