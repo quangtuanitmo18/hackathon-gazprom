@@ -3,12 +3,21 @@
 // This does not need a browser/Chromium because it uses mermaid.parse().
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
 const modulePath = process.env.MERMAID_MODULE;
 if (!modulePath || !fs.existsSync(modulePath)) {
   throw new Error('MERMAID_MODULE must point to an installed Mermaid ESM package');
 }
+// In bare Node, the DOMPurify import is a factory rather than an initialized
+// sanitizer. Mermaid's flowchart parser calls purify.addHook(), so provide a
+// lightweight DOM *before* importing Mermaid. This is for parsing only.
+const requireFromMermaid = createRequire(path.resolve(modulePath));
+const { JSDOM } = requireFromMermaid('jsdom');
+const { window } = new JSDOM('<!doctype html><html><body></body></html>');
+globalThis.window = window;
+globalThis.document = window.document;
 const { default: mermaid } = await import(pathToFileURL(path.resolve(modulePath)).href);
 mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
 
