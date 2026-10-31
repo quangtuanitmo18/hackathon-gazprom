@@ -45,9 +45,12 @@ jobs:
           assert len(slidepdf)==10
           mainpdf=fitz.open(out/'Intelligence_Cup_2026_Main_Q1-4_Q6_V3.pdf')
           assert 3<=len(mainpdf)<=8, f'Unexpected page count: {len(mainpdf)}'
+          # PDF text extraction can inject line breaks between spaced RUB digits.
+          # Compare whitespace-normalized token streams, not visual line layout.
           text='\n'.join(p.get_text() for p in mainpdf)
+          compact=''.join(text.split())
           for token in ['1 532 277','1 603 331','Wilson','BM25','6,35%']:
-            assert token in text, f'Lost in rendered main PDF: {token}'
+            assert ''.join(token.split()) in compact, f'Lost in rendered main PDF: {token}'
           word=Document(out/'Intelligence_Cup_2026_Main_Q1-4_Q6_V3.docx')
           assert len(word.tables)>=2
           assert (out/'Intelligence_Cup_2026_Q5_Effect_Metrics_V3.md').exists()
