@@ -82,6 +82,18 @@ def verify() -> None:
         assert len(source) > 500, f"Diagram source too small: {name}"
         assert name in gallery, f"Missing diagram gallery link: {name}"
         assert source.strip() in gallery, f"Gallery out of date: {name}"
+    # Regression: Mermaid sequence diagrams treat a literal semicolon in a
+    # message as a statement separator, even though it looks like prose.
+    # Mermaid supports #59; to escape a literal semicolon.
+    seq = read("docs/diagrams/feedback-sequence.mmd")
+    assert "sequenceDiagram" in seq and "M-->>A: proposed intent" in seq
+    for lineno, line in enumerate(seq.splitlines(), start=1):
+        if re.match(r"^\s*\w+\s*-+>>?\s*\w+\s*:", line):
+            message = line.split(":", 1)[1]
+            unescaped = re.sub(r"#[A-Za-z0-9]+;", "", message)
+            assert ";" not in unescaped, (
+                f"Unescaped semicolon in sequence message at line {lineno}"
+            )
     df_source = read("docs/diagrams/data-flow-trust-boundaries.mmd")
     assert 'SAN -.->|"не передавать"| EXT' not in df_source, (
         "Forbidden egress must not be depicted as real data transfer"
