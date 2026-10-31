@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -140,6 +141,26 @@ def verify() -> None:
     assert "Webneft" in outline and "один" in outline
     assert "10 слайдов" in outline
     print("PASS: multi-product scope, per-product taxonomy, routing and four product-boundary tests")
+    # Demonstrate why qualification-to-send p90 alone can conceal the delay
+    # from the first relevant complaint: these are SYNTHETIC timestamps,
+    # not real support data or historical reconstructed ingested_at values.
+    first = datetime.fromisoformat("2026-10-26T09:00:00+00:00")
+    qualified = datetime.fromisoformat("2026-10-30T09:00:00+00:00")
+    sent = datetime.fromisoformat("2026-10-30T09:05:00+00:00")
+    assert first <= qualified <= sent
+    assert (sent - qualified).total_seconds() == 5 * 60
+    assert (sent - first).total_seconds() == 96 * 3600 + 5 * 60
+    release = read("docs/evaluation/release-gates.md")
+    for x in ("first_relevant_ingested_at", "Timely product decision rate",
+              "96 h 5 min"):
+        assert x in release, f"Missing release-gate evidence: {x}"
+    for x in ("first_relevant_ingested_at", "End-to-End Insight Delay",
+              "96 ч 5 минут", "Timely product decision rate",
+              "undelivered/eligible"):
+        assert x in metrics, f"Missing KPI explanation: {x}"
+    print("PASS: distinct 5-minute delivery TPI vs 96h05 synthetic end-to-end "
+          "discovery time; unknown clock and delivery selection caveats retained")
+
     # Independent 5-block workload regression based on explicitly hypothetical
     # inputs; never treat these numbers as measured corporate model capacity.
     capacity = json.loads(read("docs/architecture/per-service-capacity-scenario.json"))
