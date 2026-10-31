@@ -9,10 +9,17 @@
 - Actual team registration, account acceptance, aspirantura eligibility and solution upload deadline remain **unknown**. Official channel states registration through Oct 30 inclusive; news reported Oct 29. Both are registration dates, not verified solution upload cutoff.
 
 ## Execution steps
-- [ ] 1. Produce Russian-language reviewer instructions and **separate review form** for Russian editorial/product evaluator and technical/finance evaluator; score PASS/REVISE/BLOCKED/NOT_VERIFIED, one evidence per claim, no invented scoring weights.
-- [ ] 2. Produce a clear **submission readiness decision tree**: registered and accepted vs awaiting status vs not registered; aspirantura status resolved separately, precise upload time authoritative only from user portal/organizer.
-- [ ] 3. Check selected final file manifest and exact package roles (Word/PDF alternatives, mandatory Q5 .md, ~10 slide PPTX/PDF), **not** upload all duplicates unless portal specifically allows. No annex hyperlinks to extend 15k content.
-- [ ] 4. Include five high-risk falsification tests (7→5 group count; synthetic 3 vs real one; 4/1/2 slots vs GPU; TPI 5m vs E2E 96h05; PV=benefit not cash/ROI) and actionable review questions.
+- [x] 1. Produce Russian-language reviewer instructions and **separate review form** for Russian editorial/product evaluator and technical/finance evaluator; score PASS/REVISE/BLOCKED/NOT_VERIFIED, one evidence per claim, no invented scoring weights.
+- [x] 2. Produce a clear **submission readiness decision tree**: registered and accepted vs awaiting status vs not registered; aspirantura status resolved separately, precise upload time authoritative only from user portal/organizer.
+- [x] 3. Check selected final file manifest and exact package roles (Word/PDF alternatives, mandatory Q5 .md, ~10 slide PPTX/PDF), **not** upload all duplicates unless portal specifically allows. No annex hyperlinks to extend 15k content.
+- [x] 4. Include five high-risk falsification tests (7→5 group count; synthetic 3 vs real one; 4/1/2 slots vs GPU; TPI 5m vs E2E 96h05; PV=benefit not cash/ROI) and actionable review questions.
 - [ ] 5. Verify GitHub source references, actual CI pass on HEAD, record author COMMENT only. No merge/deploy/submission or false independent approval.
 
 **Acceptance:** user/team can hand the package to two people and obtain structured, reproducible P0/P1/P2 feedback; the decision to submit is blocked until the portal and eligibility are confirmed. Existing final deliverable content remains frozen absent an identified correction.
+
+## Executed checkpoint
+
+- [Unfilled two-reviewer scorecard](../../submission/2026-10-31-independent-review-scorecard.ru.md) includes the 6 organizer criteria, separate language/business and technical/finance roles, six material falsification tests and deliberately PENDING signature fields.
+- [Portal Go/No-Go](../../submission/2026-10-31-portal-submission-go-no-go.ru.md) explicitly distinguishes the organizer's Telegram 30 October registration cutoff from unverified solution upload deadline and asks for platform-confirmed team status and aspirantura eligibility.
+- No final deliverable binary or official Q1–Q6 submission source was changed in this phase. These are handoff/review process aids, not attachments to bypass 15k.
+- Remaining: CI on exact final HEAD, COMMENT-only author review; independent human evaluation and organizer registration/portal confirmation require user/team action and cannot be certified by assistant.
