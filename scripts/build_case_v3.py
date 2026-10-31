@@ -154,7 +154,7 @@ for i,(no,name,desc) in enumerate(items):
 sl=base('5 логических функций — 3 процесса MVP','архитектура / нагрузка',4,'Каждая величина ниже — сценарная, не реальные данные компании и не число GPU.')
 heads=['INGESTION','ASR / VL','QWEN + BM25','AGGREGATE','DELIVERY']; nums=['300','4 + 1','2','0,25','7,5'];subs=['тикетов / ч','условных слота','text slots','DB writes / s','дайджестов / ч']
 for i in range(5):
- x=.55+i*2.55;card(sl,x,2.5,2.4,2.75,heads[i],nums[i]+'\n'+subs[i],[TEAL,PC(116,75,178),TEAL,PC(78,109,175),ORANGE][i],[PALE,LAV,MINT,PALE,PEACH][i],11,22)
+ x=.55+i*2.55;card(sl,x,2.5,2.4,2.75,heads[i],nums[i]+'\n'+subs[i],[TEAL,PC(116,75,178),TEAL,PC(78,109,175),ORANGE][i],[PALE,LAV,MINT,PALE,PEACH][i],11,18)
 shape(sl,.6,5.72,12.07,.83,WHITE,LINE)
 txt(sl,'≈40 × 20 обращений/день ÷ 8 часов × пик 3 = 300/ч. RTF/VRAM/latency измерять отдельно.',.92,6.03,11.45,.35,12,NAVY,True,PP_ALIGN.CENTER)
 
@@ -181,7 +181,7 @@ for i,(h,b) in enumerate([('A • MANUAL','Текущий процесс\nЧас
  card(sl,.57+i*4.27,2.4,4.05,2.68,h,b,[PC(82,109,140),TEAL,PC(111,77,167)][i],[PALE,MINT,LAV][i],13,14)
 shape(sl,.69,5.49,11.95,.98,WHITE,LINE)
 txt(sl,'Проверка: gold TP/FP, ложные объединения, net reviewer minutes, coverage, SLA',.97,5.77,11.4,.37,12,NAVY,True,PP_ALIGN.CENTER)
-txt(sl,'Precision ≥0,80 — только цель. Для строгого GO: нижняя 95% Wilson CI ≥0,80 (после согласования).',.8,6.58,11.9,.36,10,ORANGE,True,PP_ALIGN.CENTER)
+txt(sl,'Precision ≥0,80 — цель; GO лишь по нижней 95% Wilson CI ≥0,80 после согласования.',.8,6.58,11.9,.36,10,ORANGE,True,PP_ALIGN.CENTER)
 
 sl=base('5 минут после qualification ≠ 96 часов от первого ticket','метрики',9,'Оба времени — иллюстрация, а не измеренный результат компании.')
 for i,(date,h,field) in enumerate([('26.10 09:00','Первое наблюдение','first_relevant_ingested_at'),('30.10 09:00','Evidence достаточно','qualified_at'),('30.10 09:05','Доставка команде','sent_at')]):
@@ -201,7 +201,8 @@ for i,(name,amount,color) in enumerate([('Консервативный','123 т�
 shape(sl,.65,5.17,12.05,.76,PALE,LINE)
 txt(sl,'Россия на 30.10.2026: ставка ЦБ 14%; инфляция сентябрь 6,35% г/г.',.9,5.38,11.57,.33,12,NAVY,True,PP_ALIGN.CENTER)
 shape(sl,.65,6.05,12.05,.73,PEACH,None)
-txt(sl,'Стресс r=14%: базовый PV = 1,53 млн ₽  •  r ≠ WACC  •  C vs BM25 проверяется на пилоте',.93,6.26,11.51,.3,11,ORANGE,True,PP_ALIGN.CENTER)
+txt(sl,'Стресс r=14%: PV 1,53 млн ₽  •  r ≠ WACC  •  Hybrid vs BM25 — только пилот',.93,6.26,11.51,.3,11,ORANGE,True,PP_ALIGN.CENTER)
+txt(sl,'Источники: Банк России (30.10.2026); Росстат (ИПЦ сентябрь 2026)',.95,6.86,11.4,.20,8,GRAY,False,PP_ALIGN.CENTER)
 
 slides=OUT/'Intelligence_Cup_2026_Presentation_V3.pptx';prs.save(slides)
 # Pandoc not needed: original Markdown is the source of DOCX. Export PDFs via LO.
