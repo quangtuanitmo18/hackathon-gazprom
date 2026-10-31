@@ -62,6 +62,6 @@ Conservative slot requirement   c = ceil(λpeak × measured_service_seconds /(36
 4. **DB + retrieval:** фактические SQL statements/event, индекс/scope, percentile latency, query load, growth under one-year source retention. Retention derived data согласовать отдельно.
 5. **Delivery:** число созданных/approved отправленных product insights, latency outbox/ACK, retries, undelivered backlog, product-team feedback, strict idempotency.
 
-**Sizing exit gate:** модель очередей и service concurrency должна пройти shadow load tests (сSynthetic anonymized data), включая 1h outage/replay, 3× peak, oversized audio/image, missing Qwen and late backfill. После фактического benchmark заменить все обозначенные иллюстративные параметры. Не делайте закупочные выводы из этой учебной таблицы.
+**Sizing exit gate:** модель очередей и service concurrency должна пройти shadow load tests (с синтетическими обезличенными данными), включая 1h outage/replay, 3× peak, oversized audio/image, missing Qwen and late backfill. После фактического benchmark заменить все обозначенные иллюстративные параметры. Не делайте закупочные выводы из этой учебной таблицы.
 
 **Финансовая связка:** стоимость ASR/Qwen для внутренних сервисов по условию не тарифицируется, но complexity/time/risks интеграции не равны нулю. Сравнение rules/BM25-only остаётся обязательным. Не путать финансовые сценарии (5/15/25 минут экономии) с числом обращений (20 на менеджера) — это независимые гипотезы.
