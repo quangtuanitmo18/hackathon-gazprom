@@ -1,5 +1,7 @@
 # Kịch bản thuyết trình với leader — Product Feedback Intelligence (Intelligence Cup 2026, V3)
 
+**Bản tiếng Nga để trình bày với leader:** [leader-presentation.ru.md](./leader-presentation.ru.md) — câu ngắn, dễ nói, có link diagram/evaluation theo từng slide.
+
 **Ngôn ngữ:** tiếng Việt · **Thời lượng đề xuất:** khoảng 12–15 phút tùy tốc độ và phần demo mở link · **Đối tượng:** team leader/technical lead · **Trạng thái:** concept/thiết kế, không phải sản phẩm đã chạy thực tế.
 
 **Bộ slide V3:** [GitHub Actions thành công — tải artifact intelligence-cup-v3-review-pack](https://github.com/quangtuanitmo18/hackathon-gazprom/actions/runs/41228627697). File PPTX/PDF nằm trong workflow artifact, **không nằm ở nhánh GitHub dưới dạng file nhị phân**. **[Storyboard 10 slide](https://github.com/quangtuanitmo18/hackathon-gazprom/blob/feat/webneft-case-v2/submissions/presentation-outline.ru.md)** để theo dõi thứ tự nội dung. Để không nói nhầm, bản demo 3 ticket và toàn bộ KPI tải/ROI đều là ví dụ hoặc giả định, không phải kết quả đo của Gazprom Neft.
